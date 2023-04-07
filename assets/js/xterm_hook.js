@@ -13,7 +13,7 @@ const xterm_hook = {
 
     this.handleEvent("outputs", function(e) {
       let data = e.data
-      console.log(data)
+      // console.log(data)
       if (data && data.indexOf('\n') !== -1) {
         if (data.endsWith('\n')) {
           data.slice(0, data.length - 1).split('\n').forEach(value => term.writeln(value));

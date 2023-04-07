@@ -1,5 +1,5 @@
-<div class="flex w-full justify-between bg-gray-50" style="height: 456px;">
-  <div class="flex-1 pt-4 px-6 overflow-y-auto">
+<div class="flex w-screen justify-between bg-gray-50">
+  <div class="flex-1 pt-4 px-6 overflow-y-auto" style="height: 456px;">
     <div class="space-y-2">
       <div class="text-2xl text-brand font-semibold leading-6">
         X-Trace
@@ -12,17 +12,17 @@
 
       <div>
         <span class="text-lg font-bold">TSpecs:</span><br/>
-        <pre class="select-all"><%= inspect(@t_specs, pretty: true, limit: :infinity) %></pre>
+        <pre class="select-all"><%= inspect_value(@t_specs) %></pre>
       </div>
 
       <div>
         <span class="text-lg font-bold">Max:</span><br/>
-        <pre class="select-all"><%= inspect(@max, pretty: true, limit: :infinity) %></pre>
+        <pre class="select-all"><%= inspect_value(@max) %></pre>
       </div>
 
       <div>
         <span class="text-lg font-bold">Options:</span><br/>
-        <pre class="select-all"><%= inspect(@options, pretty: true, limit: :infinity) %></pre>
+        <pre class="select-all"><%= inspect_value(@options) %></pre>
       </div>
     </div>
 
@@ -37,10 +37,10 @@
     </div>
   </div>
 
-  <div id="results" class="flex-none max-w-4xl" phx-hook="xterm_hook" phx-update="ignore"></div>
+  <div id="results" class="flex-none" phx-hook="xterm_hook" phx-update="ignore"></div>
 
-  <div id="local-settings" class="flex-1 overflow-y-auto text-xs" phx-update="ignore">
-    <div x-data="local_settings">
+  <div id="local-settings" class="flex-1 text-xs" phx-update="ignore">
+    <div x-data="local_settings" class="overflow-auto" style="height: 456px;">
       <button id="ls-save" type="button" class="hidden" @click="save_current_setting()">Save Settings</button>
       <div>
         <template x-for="(item, index) in items" x-bind:key="index">
@@ -69,7 +69,7 @@
   </div>
 </div>
 
-<div class="w-full px-10 py-2 flex-grow">
+<div class="w-screen px-10 py-2 flex-grow">
   <.form id="trace-form" :let={f} for={@form} phx-change="validate">
     <div class="max-w-6xl mx-auto">
       <div class="font-medium text-gray-500">
@@ -90,7 +90,7 @@
 
           <%= if @node != :"nonode@nohost" do %>
             <div class="grid grid-cols-2 gap-4">
-              <.input field={f[:connect_node]} label="Node to connect" />
+              <.input field={f[:connect_node]} label="Node to connect" placeholder="name@domain" />
               <.input field={f[:connect_cookie]} label="Cookie" />
               <.button type="button" class="w-full" phx-click="connect-node">Connect</.button>
               <.button type="button" class="w-full" phx-click="reset-node">Reset node</.button>
@@ -126,7 +126,7 @@
 
           <div class="px-4 text-sm text-center grid grid-cols-3 gap-x-12" :if={not Enum.empty?(@t_specs)}>
             <div class="flex space-x-2" :for={{t_spec, index} <- Enum.with_index(@t_specs)}>
-              <span><%= inspect(t_spec) %></span>
+              <span><%= inspect(t_spec, limit: :infinity) %></span>
               <div phx-click="del-t_spec" phx-value-at={index})}>
                 <.icon name="hero-x-mark"/>
               </div>
@@ -183,7 +183,7 @@
           <% pids = @options[:pid] %>
           <div class="px-4 text-sm text-center grid grid-cols-4 gap-x-12" :if={is_list(pids) and not Enum.empty?(pids)}>
             <div class="flex space-x-2" :for={{pid, index} <- Enum.with_index(pids)}>
-              <span><%= inspect(pid) %></span>
+              <span><%= inspect(pid, limit: :infinity) %></span>
               <div phx-click="del-pid" phx-value-at={index})}>
                 <.icon name="hero-x-mark"/>
               </div>
@@ -202,7 +202,7 @@
   </.form>
 </div>
 
-<div class="mt-4 h-12 w-full max-w-3xl mx-auto grid grid-cols-4 place-content-center text-center text-sm text-gray-500 divide-x divide-gray-400">
+<div class="mt-4 h-12 w-screen max-w-3xl mx-auto grid grid-cols-4 place-content-center text-center text-sm text-gray-500 divide-x divide-gray-400">
   <a href={~p"/dashboard"} target="_blank">Dashboard</a>
   <a href="https://hexdocs.pm/recon/recon_trace.html" target="_blank">Document</a>
   <a href="https://github.com/feng19" target="_blank">Author: feng19</a>

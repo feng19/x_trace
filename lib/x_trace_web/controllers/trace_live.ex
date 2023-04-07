@@ -270,7 +270,7 @@ defmodule XTraceWeb.TraceLive do
     data = :erlang.term_to_binary(item) |> Base.encode64()
 
     item =
-      Map.new(item, fn {k, v} -> {k, inspect(v, pretty: true, limit: :infinity)} end)
+      Map.new(item, fn {k, v} -> {k, inspect_value(v)} end)
       |> Map.put(:data, data)
 
     {:reply, item, socket}
@@ -568,5 +568,9 @@ defmodule XTraceWeb.TraceLive do
       add_tspec_disabled: true,
       add_pid_disabled: true
     }
+  end
+
+  defp inspect_value(v) do
+    inspect(v, pretty: true, limit: :infinity, width: 40)
   end
 end
