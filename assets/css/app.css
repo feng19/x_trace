@@ -1,0 +1,41 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+@import "xterm.css";
+
+/* This file is for your main application CSS */
+
+.tab {
+  @apply cursor-pointer border-b border-gray-200 flex-1 rounded-t-lg;
+}
+
+.tab span {
+  @apply text-lg inline-block w-full p-2 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300;
+}
+
+.tab {
+  @apply cursor-pointer border-b border-gray-200 flex-1;
+}
+
+span.tab-active {
+  @apply text-purple-600 border-purple-600 active hover:text-purple-600 hover:border-purple-600;
+}
+
+input:disabled {
+  @apply opacity-50 text-gray-400 cursor-not-allowed;
+}
+
+button:disabled {
+  @apply opacity-50 text-gray-400 cursor-not-allowed;
+}
+
+a {
+  @apply cursor-pointer underline transition hover:no-underline hover:text-indigo-700 hover:font-bold;
+}
+
+.icon-btn {
+  @apply w-16 h-full flex justify-center items-center transition hover:text-indigo-700 hover:font-bold;
+}
+.icon-btn span {
+  @apply w-8 h-8 hover:scale-110 hover:cursor-pointer;
+}

@@ -1,0 +1,211 @@
+<div class="flex w-full justify-between bg-gray-50" style="height: 456px;">
+  <div class="flex-1 pt-4 px-6 overflow-y-auto">
+    <div class="space-y-2">
+      <div class="text-2xl text-brand font-semibold leading-6">
+        X-Trace
+      </div>
+
+      <div>
+        <span class="text-lg font-bold">Node:</span><br/>
+        <span class="select-all"><%= @node %></span>
+      </div>
+
+      <div>
+        <span class="text-lg font-bold">TSpecs:</span><br/>
+        <pre class="select-all"><%= inspect(@t_specs, pretty: true, limit: :infinity) %></pre>
+      </div>
+
+      <div>
+        <span class="text-lg font-bold">Max:</span><br/>
+        <pre class="select-all"><%= inspect(@max, pretty: true, limit: :infinity) %></pre>
+      </div>
+
+      <div>
+        <span class="text-lg font-bold">Options:</span><br/>
+        <pre class="select-all"><%= inspect(@options, pretty: true, limit: :infinity) %></pre>
+      </div>
+    </div>
+
+    <div class="mt-6 text-center grid grid-cols-2 gap-x-6 gap-y-2">
+      <.button type="button" phx-click="trace" disabled={@disabled} class="col-span-2">Start Trace</.button>
+
+      <.button type="button" phx-click="clear">Clear All</.button>
+      <.button type="button" phx-click="download">Download Logs</.button>
+
+      <.button type="button" phx-click="reset-settings">Reset Settings</.button>
+      <.button type="button" phx-click={JS.dispatch("click", to: "#ls-save")} disabled={@disabled}>Save Settings</.button>
+    </div>
+  </div>
+
+  <div id="results" class="flex-none max-w-4xl" phx-hook="xterm_hook" phx-update="ignore"></div>
+
+  <div id="local-settings" class="flex-1 overflow-y-auto text-xs" phx-update="ignore">
+    <div x-data="local_settings">
+      <button id="ls-save" type="button" class="hidden" @click="save_current_setting()">Save Settings</button>
+      <div>
+        <template x-for="(item, index) in items" x-bind:key="index">
+          <div class="flex select-none cursor-pointer border-b border-dashed border-gray-400" x-bind:class="select_index == index && 'bg-gray-100 font-bold'">
+            <div @click="select(index)" class="flex-1 py-3">
+              <span class="font-bold">TSpecs:</span>
+              <pre x-text="item.t_specs"></pre>
+              <span class="font-bold">Max:</span>
+              <pre x-text="item.max"></pre>
+              <span class="font-bold">Options:</span>
+              <pre x-text="item.options"></pre>
+            </div>
+
+            <div class="grid grid-rows-2 text-indigo-900">
+              <div @click="apply(index)" class="bg-blue-50 icon-btn">
+                <.icon name="hero-play-circle-solid"/>
+              </div>
+              <div @click="remove(index)" class="bg-red-50 icon-btn">
+                <.icon name="hero-x-circle-solid"/>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="w-full px-10 py-2 flex-grow">
+  <.form id="trace-form" :let={f} for={@form} phx-change="validate">
+    <div class="max-w-6xl mx-auto">
+      <div class="font-medium text-gray-500">
+        <ul class="flex flex-wrap space-x-4 -mb-px px-4 text-center text-sm">
+          <li class="tab" phx-click="set-tab" phx-value-tab={tab} :for={tab <- ~w"node specs max options"}>
+            <span class={@tab==tab && "tab-active"}>
+              <%= String.upcase(tab) %>
+            </span>
+          </li>
+        </ul>
+
+        <div class={["p-4 space-y-4", @tab != "node" && "hidden"]} id="node-tab">
+          <%= if Enum.count(@nodes) == 1 do %>
+            <.input field={f[:node]} type="hidden"/>
+          <% else %>
+            <.input field={f[:node]} label="Node" type="select" options={@nodes}/>
+          <% end %>
+
+          <%= if @node != :"nonode@nohost" do %>
+            <div class="grid grid-cols-2 gap-4">
+              <.input field={f[:connect_node]} label="Node to connect" />
+              <.input field={f[:connect_cookie]} label="Cookie" />
+              <.button type="button" class="w-full" phx-click="connect-node">Connect</.button>
+              <.button type="button" class="w-full" phx-click="reset-node">Reset node</.button>
+            </div>
+          <% else %>
+            <div class="grid grid-cols-2 gap-x-2">
+              <.input field={f[:node_name]} label="Name" />
+              <.input field={f[:node_domain]} label="Domain" disabled={f[:is_long_name].value == "false"} />
+              <div></div>
+              <.input field={f[:is_long_name]} label="LongName" type="checkbox" />
+              <.input field={f[:cookie]} label="Cookie" />
+              <.button type="button" class="mt-8" phx-click="setup-node">Setup</.button>
+            </div>
+          <% end %>
+        </div>
+
+        <div class={["p-4 space-y-4", @tab != "specs" && "hidden"]} id="specs-tab">
+          <div class="text-sm">
+            The basic calls take the trace patterns as tuples of the form
+            `{Module, Function, Args}' where:
+
+            <ul>
+              <li>`Module' is any atom representing a module</li>
+              <li>`Function' is any atom representing a function, or the wildcard
+                <code>'_'</code></li>
+              <li>`Args' is either the arity of a function (`0..255'), a wildcard
+                pattern (<code>'_'</code>), a
+                <a href="http://learnyousomeerlang.com/ets#you-have-been-selected" target="_blank">match specification</a>,
+                or a function from a shell session that can be transformed into
+                a match specification</li>
+            </ul>
+          </div>
+
+          <div class="px-4 text-sm text-center grid grid-cols-3 gap-x-12" :if={not Enum.empty?(@t_specs)}>
+            <div class="flex space-x-2" :for={{t_spec, index} <- Enum.with_index(@t_specs)}>
+              <span><%= inspect(t_spec) %></span>
+              <div phx-click="del-t_spec" phx-value-at={index})}>
+                <.icon name="hero-x-mark"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-4 grid grid-cols-3 gap-4">
+            <.input field={f[:module]} label="Module" list="module-list" />
+            <datalist id="module-list">
+              <option :for={m <- @module_list}><%= m %></option>
+            </datalist>
+            <.input field={f[:fun]} label="Fun" list="fun-list" />
+            <datalist id="fun-list">
+              <option :for={f <- @fun_list}><%= f %></option>
+            </datalist>
+            <.input field={f[:args]} label="Args" list="args-list" />
+            <datalist id="args-list">
+              <option :for={a <- @args_list}><%= a %></option>
+            </datalist>
+          </div>
+          <div class="text-center">
+            <.button type="button" phx-click="add-tspec" class="w-1/2" disabled={@add_tspec_disabled}>Add</.button>
+          </div>
+        </div>
+
+        <div class={["p-4 space-y-4", @tab != "max" && "hidden"]} id="max-tab">
+          <div>
+          The limit was also set using `{10,100}' instead of an integer, making the
+          rate-limitting at 10 messages per 100 milliseconds, instead of an absolute
+          value.
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <.input field={f[:max]} label="Max" type="number" />
+            <.input field={f[:milliseconds]} label="Milliseconds" type="number" />
+          </div>
+        </div>
+
+        <div class={["p-4 space-y-4", @tab != "options" && "hidden"]} id="options-tab">
+          <div class="text-sm">
+            Scope is useful whenever you want to track the changes of code in a process that isn't called
+            with `Module:Fun(Args)', but just `Fun(Args)'.
+            <ul>
+              <li>'global' - Fully qualified function calls are traced, not calls made internally.</li>
+              <li>'local' - To force tracing of local calls.</li>
+            </ul>
+
+            <br/>
+            Pid specifications let you decide which processes to target. They can be
+            specific pids, `all' pids, `existing' pids, or `new' pids (those not
+            spawned at the time of the function call).
+          </div>
+
+          <% pids = @options[:pid] %>
+          <div class="px-4 text-sm text-center grid grid-cols-4 gap-x-12" :if={is_list(pids) and not Enum.empty?(pids)}>
+            <div class="flex space-x-2" :for={{pid, index} <- Enum.with_index(pids)}>
+              <span><%= inspect(pid) %></span>
+              <div phx-click="del-pid" phx-value-at={index})}>
+                <.icon name="hero-x-mark"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <.input field={f[:scope]} label="Scope" type="select" options={~w"global local"} />
+            <.input field={f[:pid]} label="Pid type" type="select" options={~w"all new existing pid"} />
+            <.input field={f[:pid_str]} label="Pid" placeholder="A.B.C" :if={f[:pid].value == "pid"} />
+            <.button type="button" class="mt-8" phx-click="add-pid" :if={f[:pid].value == "pid"} disabled={@add_pid_disabled}>Add</.button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </.form>
+</div>
+
+<div class="mt-4 h-12 w-full max-w-3xl mx-auto grid grid-cols-4 place-content-center text-center text-sm text-gray-500 divide-x divide-gray-400">
+  <a href={~p"/dashboard"} target="_blank">Dashboard</a>
+  <a href="https://hexdocs.pm/recon/recon_trace.html" target="_blank">Document</a>
+  <a href="https://github.com/feng19" target="_blank">Author: feng19</a>
+  <a href="https://github.com/feng19/x_trace" target="_blank">Github</a>
+</div>
+<div id="cc" class="hidden" phx-hook="cc"></div>
