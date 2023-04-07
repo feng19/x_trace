@@ -137,11 +137,19 @@ defmodule XTraceWeb.TraceLive do
   def handle_event("trace", _params, socket) do
     %{local?: local?, node: node, t_specs: t_specs, max: max, options: options} = socket.assigns
 
-    if local? do
-      local_calls(t_specs, max, options)
-    else
-      remote_calls(node, t_specs, max, options)
-    end
+    msg =
+      if local? do
+        local_calls(t_specs, max, options)
+      else
+        remote_calls(node, t_specs, max, options)
+      end
+      |> case do
+        0 -> "zero trace, calls failed"
+        i when is_integer(i) -> "=> #{i}, tracing..."
+        msg when is_binary(msg) -> msg
+        {error, reason, stacktrace} -> Exception.format(error, reason, stacktrace)
+        error -> inspect(error)
+      end
 
     socket =
       if socket.assigns.clear_hello do
@@ -149,6 +157,7 @@ defmodule XTraceWeb.TraceLive do
       else
         socket
       end
+      |> push_event("outputs", %{data: msg})
 
     {:noreply, socket}
   end
@@ -378,6 +387,12 @@ defmodule XTraceWeb.TraceLive do
     Process.group_leader(self(), io_server)
     ensure_loaded(t_specs)
     Extrace.calls(t_specs, max, [{:io_server, io_server} | options])
+  rescue
+    reason ->
+      Exception.format(:error, reason, __STACKTRACE__)
+  catch
+    error, reason ->
+      Exception.format(error, reason, __STACKTRACE__)
   end
 
   defp remote_calls(node, t_specs, max, options) when is_list(t_specs) do

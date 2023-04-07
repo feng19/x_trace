@@ -21,15 +21,15 @@ const local_settings = {
   },
   select(index) {
     if (this.select_index == index) {
-      console.log("unselect", index)
+      console.log("unselect index:", index)
       this.select_index = -1
     } else {
-      console.log("select", index)
+      console.log("select index:", index)
       this.select_index = index
     }
   },
   apply(index) {
-    console.log("apply", index)
+    console.log("apply index:", index)
     this.select_index = index
     cc.pushEvent('apply-settings', this.items[index].data)
   },

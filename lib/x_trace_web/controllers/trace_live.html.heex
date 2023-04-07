@@ -1,5 +1,5 @@
 <div class="flex w-screen justify-between bg-gray-50 px-0">
-  <div class="flex-1 pt-4 px-6 overflow-y-auto" style="height: 456px;">
+  <div class="flex-1 p-4 overflow-y-auto" style="height: 456px;">
     <div class="space-y-2">
       <div class="text-2xl text-brand font-semibold leading-6">
         X-Trace
@@ -26,7 +26,7 @@
       </div>
     </div>
 
-    <div class="mt-6 text-center grid grid-cols-2 gap-x-6 gap-y-2">
+    <div class="mt-6 text-center grid grid-cols-2 gap-x-4 gap-y-2">
       <.button type="button" phx-click="trace" disabled={@disabled} class="col-span-2">Start Trace</.button>
 
       <.button type="button" phx-click="clear">Clear All</.button>
@@ -69,7 +69,7 @@
   </div>
 </div>
 
-<div class="w-screen px-10 py-2 flex-grow overflow-y-auto">
+<div class="w-screen px-10 py-2 flex-grow overflow-y-auto flex flex-col justify-between">
   <.form id="trace-form" :let={f} for={@form} phx-change="validate">
     <div class="max-w-6xl mx-auto">
       <div class="font-medium text-gray-500">
@@ -200,12 +200,13 @@
       </div>
     </div>
   </.form>
+
+  <div class="h-8 w-screen max-w-3xl mx-auto grid grid-cols-4 place-content-center text-center text-sm text-gray-500 divide-x divide-gray-400">
+    <a href={~p"/dashboard"} target="_blank">Dashboard</a>
+    <a href="https://hexdocs.pm/recon/recon_trace.html" target="_blank">Document</a>
+    <a href="https://github.com/feng19" target="_blank">Author: feng19</a>
+    <a href="https://github.com/feng19/x_trace" target="_blank">Github</a>
+  </div>
 </div>
 
-<div class="mt-4 h-12 w-screen max-w-3xl mx-auto grid grid-cols-4 place-content-center text-center text-sm text-gray-500 divide-x divide-gray-400">
-  <a href={~p"/dashboard"} target="_blank">Dashboard</a>
-  <a href="https://hexdocs.pm/recon/recon_trace.html" target="_blank">Document</a>
-  <a href="https://github.com/feng19" target="_blank">Author: feng19</a>
-  <a href="https://github.com/feng19/x_trace" target="_blank">Github</a>
-</div>
 <div id="cc" class="hidden" phx-hook="cc"></div>
