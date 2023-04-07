@@ -449,6 +449,7 @@ defmodule XTraceWeb.TraceLive do
       end
     end)
     |> Enum.reverse()
+    |> Enum.uniq()
   end
 
   defp fun_list(true, _node, module) do
