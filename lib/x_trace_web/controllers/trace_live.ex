@@ -372,7 +372,7 @@ defmodule XTraceWeb.TraceLive do
      }, errors}
   end
 
-  defp validate_mfa("module", "_", errors, all_loaded, local?, node, code_server_mode) do
+  defp validate_mfa("module", "_", errors, all_loaded, _local?, _node, _code_server_mode) do
     errors = Keyword.put(errors, :module, {"module can't defined as '_'", []})
     {%{module_list: all_loaded, fun_list: @default_fun_list, add_tspec_disabled: false}, errors}
   end
