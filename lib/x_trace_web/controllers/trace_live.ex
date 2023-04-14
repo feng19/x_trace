@@ -507,7 +507,7 @@ defmodule XTraceWeb.TraceLive do
         call(node, Module, :concat, [[module]])
 
       {true, false} ->
-        call(node, :erlang, :list_to_existing_atom, [:erlang.binary_to_list(module)])
+        call(node, :erlang, :binary_to_existing_atom, [module])
 
       {false, true} ->
         {:error, :badfile}
