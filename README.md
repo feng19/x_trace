@@ -2,7 +2,7 @@
 
 A new tool for easy to use recon_trace
 
-[Video](https://twitter.com/kevin52069370/status/1644341210541363201)
+[Video Demo](https://twitter.com/kevin52069370/status/1644341210541363201)
 
 ## Usage
 
