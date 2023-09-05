@@ -165,13 +165,7 @@ defmodule XTraceWeb.TraceLive do
       else
         remote_calls(node, t_specs, max, options)
       end
-      |> case do
-        0 -> "zero trace, calls failed"
-        i when is_integer(i) -> "=> #{i}, tracing..."
-        msg when is_binary(msg) -> msg
-        {error, reason, stacktrace} -> Exception.format(error, reason, stacktrace)
-        error -> inspect(error)
-      end
+      |> format_calls_return()
 
     socket =
       if socket.assigns.clear_hello do
@@ -443,7 +437,13 @@ defmodule XTraceWeb.TraceLive do
     io_server = IoServer.pid()
     Process.group_leader(self(), io_server)
     ensure_loaded(t_specs)
+    IoServer.puts("Extrace.calls(#{inspect(t_specs)}, #{inspect(max)}, #{inspect(options)}")
+
     Extrace.calls(t_specs, max, [{:io_server, io_server} | options])
+    |> format_calls_return()
+    |> IoServer.puts()
+
+    ""
   rescue
     reason ->
       Exception.format(:error, reason, __STACKTRACE__)
@@ -478,8 +478,13 @@ defmodule XTraceWeb.TraceLive do
 
     ensure_loaded(node, t_specs)
 
-    # IO.inspect([t_specs, max, options])
+    IoServer.puts("Extrace.calls(#{inspect(t_specs)}, #{inspect(max)}, #{inspect(options)}")
+
     call(node, XTrace.Executor, :calls, [t_specs, max, options, io_server])
+    |> format_calls_return()
+    |> IoServer.puts()
+
+    ""
   end
 
   defp module_md5(node, module), do: call(node, module, :module_info, [:md5])
@@ -684,4 +689,13 @@ defmodule XTraceWeb.TraceLive do
   defp inspect_value(v) do
     inspect(v, pretty: true, limit: :infinity, width: 40)
   end
+
+  defp format_calls_return(0), do: "=> zero trace, calls failed!"
+  defp format_calls_return(i) when is_integer(i), do: "=> #{i}, tracing..."
+  defp format_calls_return(msg) when is_binary(msg), do: msg
+
+  defp format_calls_return({error, reason, stacktrace}),
+    do: Exception.format(error, reason, stacktrace)
+
+  defp format_calls_return(error), do: inspect(error)
 end

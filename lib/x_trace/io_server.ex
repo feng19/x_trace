@@ -5,6 +5,7 @@ defmodule XTrace.IoServer do
 
   def pid, do: Process.whereis(__MODULE__)
   def topic, do: @topic
+  def puts(strings), do: IO.puts(pid(), strings)
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -26,9 +27,6 @@ defmodule XTrace.IoServer do
     {:noreply, state}
   end
 
-  def put_chars(chars), do: :unicode.characters_to_binary(chars)
-
-  def put_chars(m, f, a) do
-    apply(m, f, a) |> to_string()
-  end
+  defp put_chars(chars), do: :unicode.characters_to_binary(chars)
+  defp put_chars(m, f, a), do: apply(m, f, a) |> to_string()
 end
