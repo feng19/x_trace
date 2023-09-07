@@ -1,15 +1,23 @@
+import {FitAddon} from "../vendor/xterm-addon-fit"
+
 const xterm_hook = {
   mounted() {
     let hook = this
     let term = new Terminal({
+      lineHeight: 1.2,
       disableStdin: true,
       cursorBlink: true,
       cursorStyle: 'underline',
       fontSize: 16,
       fontFamily: '"Menlo for Powerline", Menlo, Consolas, "Liberation Mono", Courier, monospace'
     })
+    const fitAddon = new FitAddon()
+    term.loadAddon(fitAddon)
     term.open(this.el)
+    fitAddon.fit()
+    term.focus()
     window.term = term
+    window.addEventListener("resize", () => fitAddon.fit())
 
     this.handleEvent("outputs", function(e) {
       let data = e.data

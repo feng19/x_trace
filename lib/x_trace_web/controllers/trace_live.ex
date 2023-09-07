@@ -64,6 +64,7 @@ defmodule XTraceWeb.TraceLive do
       socket
       |> assign(init_form())
       |> assign(
+        menu?: false,
         clear_hello: true,
         tab: "node",
         group_leader: group_leader,
@@ -173,6 +174,7 @@ defmodule XTraceWeb.TraceLive do
       else
         socket
       end
+      |> assign(:menu?, false)
       |> push_event("outputs", %{data: msg})
 
     {:noreply, socket}
@@ -298,7 +300,7 @@ defmodule XTraceWeb.TraceLive do
       Map.new(item, fn {k, v} -> {k, inspect_value(v)} end)
       |> Map.put(:data, data)
 
-    {:reply, item, socket}
+    {:reply, item, assign(socket, :tab, "local-settings")}
   end
 
   def handle_event("apply-settings", data, socket) do
@@ -307,6 +309,10 @@ defmodule XTraceWeb.TraceLive do
 
   def handle_event("set-tab", %{"tab" => tab}, socket) do
     {:noreply, assign(socket, :tab, tab)}
+  end
+
+  def handle_event("menu", _, socket) do
+    {:noreply, assign(socket, :menu?, not socket.assigns.menu?)}
   end
 
   @impl true

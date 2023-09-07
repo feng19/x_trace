@@ -36,15 +36,20 @@ const local_settings = {
   save_current_setting() {
     cc.pushEvent('save-settings', {}, (settings) => {
       console.log("save-settings", settings)
+      let item_node
       if (this.select_index == -1) {
         console.log("new setting")
         this.items.push(settings)
         this.select_index = this.items.length - 1
+        item_node = document.getElementById("bottom-panel")
       } else {
         console.log("replace setting")
         this.items[this.select_index] = settings
+        item_node = document.getElementById("ls-" + this.select_index)
       }
       this.dump()
+      let wrapper = document.getElementById("menu")
+      wrapper.scrollTo(0 , item_node.offsetTop)
     })
   }
 }

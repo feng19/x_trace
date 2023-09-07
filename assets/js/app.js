@@ -28,6 +28,7 @@ import local_settings from "./local_settings";
 
 window.Alpine = Alpine
 let cc = {
+  // hook agent
   mounted() { window.cc = this }
 }
 

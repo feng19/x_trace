@@ -10,7 +10,7 @@
 }
 
 .tab span {
-  @apply text-lg inline-block w-full p-2 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300;
+  @apply text-sm inline-block w-full p-2 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300;
 }
 
 .tab {
@@ -34,7 +34,7 @@ a {
 }
 
 .icon-btn {
-  @apply w-16 h-full flex justify-center items-center transition hover:text-indigo-700 hover:font-bold;
+  @apply w-24 h-full flex justify-center items-center transition hover:text-indigo-700 hover:font-bold;
 }
 .icon-btn span {
   @apply w-8 h-8 hover:scale-110 hover:cursor-pointer;
