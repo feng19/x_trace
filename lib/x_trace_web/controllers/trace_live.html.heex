@@ -53,14 +53,14 @@
               <% else %>
                 <div class="grid grid-cols-2 gap-x-2">
                   <.input field={f[:node_name]} label="Name" />
-                  <div class="relative">
+                  <div id="node_domain-c" class="relative" tabindex="1" phx-blur={JS.hide(to: "#domain-select-modal", transition: "fade-out-scale")}>
                     <.input field={f[:node_domain]} label="Domain" disabled={f[:is_long_name].value == "false"}
-                      phx-focus={JS.show(to: "#domain-select-modal", transition: "fade-in-scale")} 
-                      phx-blur={JS.hide(to: "#domain-select-modal", transition: "fade-out-scale")} />
+                    phx-focus={JS.show(to: "#domain-select-modal", transition: "fade-in-scale") |> JS.focus(to: "#node_domain-c")} />
                     <div id="domain-select-modal" class="bg-white min-w-full absolute left-0 top-20 shadow shadow-red-400 border rounded-md p-4 hidden">
                       <ul class="flex space-x-2">
                         <li :for={d <- @domains}>
-                          <div phx-click={JS.set_attribute({"value", d}, to: "input[name=node_domain]") |> JS.dispatch("change", to: "input[name=node_domain]")} class="shadow border select-none cursor-pointer rounded-md p-2">
+                          <div class="shadow border select-none cursor-pointer rounded-md p-2" 
+                          phx-click={JS.set_attribute({"value", d}, to: "input[name=node_domain]") |> JS.dispatch("change", to: "input[name=node_domain]")}>
                             <%= d %>
                           </div>
                         </li>

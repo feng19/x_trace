@@ -58,6 +58,8 @@ defmodule XTraceWeb.TraceLive do
     Process.flag(:trap_exit, true)
     group_leader = Process.group_leader()
     code_server_mode = :code.get_mode()
+    # ping world nodes
+    :net_adm.world()
 
     socket =
       socket
@@ -204,25 +206,25 @@ defmodule XTraceWeb.TraceLive do
         _ -> {:"#{name}", :shortnames}
       end
 
-    case Node.start(node_name, node_type) do
-      {:ok, _} ->
-        if cookie != "" do
-          cookie |> String.to_atom() |> Node.set_cookie()
-        end
+    socket =
+      case Node.start(node_name, node_type) do
+        {:ok, _} ->
+          if cookie != "" do
+            cookie |> String.to_atom() |> Node.set_cookie()
+          end
 
-        # ping world nodes
-        :net_adm.world()
+          # ping world nodes
+          :net_adm.world()
 
-        socket =
           socket
           |> assign(domain: domain)
           |> assign(update_local_node(form))
 
-        {:noreply, socket}
+        {:error, error} ->
+          put_flash(socket, :error, "Setup node: #{node_name}, error: #{inspect(error)}")
+      end
 
-      {:error, error} ->
-        put_flash(socket, :error, "Setup node: #{node_name}, error: #{inspect(error)}")
-    end
+    {:noreply, socket}
   end
 
   def handle_event("reset-node", _params, socket) do
