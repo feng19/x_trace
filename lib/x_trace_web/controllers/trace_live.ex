@@ -4,7 +4,6 @@ defmodule XTraceWeb.TraceLive do
   require Logger
 
   @default_params %{
-    "node" => nil,
     "module" => "",
     "fun" => "_",
     "args" => "return_trace",
@@ -91,18 +90,10 @@ defmodule XTraceWeb.TraceLive do
         "milliseconds" ->
           validate_max(params, errors)
 
-        "node" ->
-          try do
-            map = params["node"] |> String.to_existing_atom() |> update_node()
-            {map, errors}
-          catch
-            _, _ -> {%{}, Keyword.put(errors, :node, {"bad node", []})}
-          end
-
         "module" ->
           %{
             all_loaded: all_loaded,
-            local?: local?,
+            self?: self?,
             node: node,
             code_server_mode: code_server_mode
           } = assigns
@@ -112,18 +103,18 @@ defmodule XTraceWeb.TraceLive do
             params["module"],
             errors,
             all_loaded,
-            local?,
+            self?,
             node,
             code_server_mode
           )
 
         # "fun" ->
-        #  %{all_loaded: all_loaded, local?: local?, node: node, code_server_mode: code_server_mode} = assigns
-        #  validate_mfa("fun", params["fun"], errors, all_loaded, local?, node, code_server_mode)
+        #  %{all_loaded: all_loaded, self?: self?, node: node, code_server_mode: code_server_mode} = assigns
+        #  validate_mfa("fun", params["fun"], errors, all_loaded, self?, node, code_server_mode)
 
         # "args" ->
-        #  %{all_loaded: all_loaded, local?: local?, node: node, code_server_mode: code_server_mode} = assigns
-        #  validate_mfa("args", params["args"], errors, all_loaded, local?, node, code_server_mode)
+        #  %{all_loaded: all_loaded, self?: self?, node: node, code_server_mode: code_server_mode} = assigns
+        #  validate_mfa("args", params["args"], errors, all_loaded, self?, node, code_server_mode)
 
         "pid" ->
           pid =
@@ -136,8 +127,8 @@ defmodule XTraceWeb.TraceLive do
           {%{options: options}, errors}
 
         "pid_str" ->
-          %{local?: local?, node: node} = assigns
-          validate_pid(params["pid_str"], errors, local?, node)
+          %{self?: self?, node: node} = assigns
+          validate_pid(params["pid_str"], errors, self?, node)
 
         "scope" ->
           scope = String.to_existing_atom(params["scope"])
@@ -158,10 +149,10 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("trace", _params, socket) do
-    %{local?: local?, node: node, t_specs: t_specs, max: max, options: options} = socket.assigns
+    %{self?: self?, node: node, t_specs: t_specs, max: max, options: options} = socket.assigns
 
     msg =
-      if local? do
+      if self? do
         local_calls(t_specs, max, options)
       else
         remote_calls(node, t_specs, max, options)
@@ -182,7 +173,7 @@ defmodule XTraceWeb.TraceLive do
 
   def handle_event("clear", _params, socket) do
     case socket.assigns do
-      %{local?: true} -> Extrace.clear()
+      %{self?: true} -> Extrace.clear()
       %{node: node} -> call(node, :recon_trace, :clear, [])
     end
 
@@ -207,23 +198,49 @@ defmodule XTraceWeb.TraceLive do
       "cookie" => cookie
     } = form.source
 
-    case long_name? do
-      "true" -> Node.start(:"#{name}@#{domain}", :longnames)
-      _ -> Node.start(:"#{name}", :shortnames)
-    end
+    {node_name, node_type} =
+      case long_name? do
+        "true" -> {:"#{name}@#{domain}", :longnames}
+        _ -> {:"#{name}", :shortnames}
+      end
 
-    if cookie != "" do
-      cookie |> String.to_atom() |> Node.set_cookie()
-    end
+    case Node.start(node_name, node_type) do
+      {:ok, _} ->
+        if cookie != "" do
+          cookie |> String.to_atom() |> Node.set_cookie()
+        end
 
-    socket = assign(socket, update_local_node(form))
-    {:noreply, socket}
+        # ping world nodes
+        :net_adm.world()
+
+        socket =
+          socket
+          |> assign(domain: domain)
+          |> assign(update_local_node(form))
+
+        {:noreply, socket}
+
+      {:error, error} ->
+        put_flash(socket, :error, "Setup node: #{node_name}, error: #{inspect(error)}")
+    end
   end
 
   def handle_event("reset-node", _params, socket) do
     Node.stop()
     Process.sleep(100)
     socket = assign(socket, update_local_node(socket.assigns.form))
+    {:noreply, socket}
+  end
+
+  def handle_event("change-node", %{"node" => node}, socket) do
+    socket =
+      try do
+        map = node |> String.to_existing_atom() |> update_node()
+        assign(socket, map)
+      catch
+        _, _ -> put_flash(socket, :error, "bad node: #{node}")
+      end
+
     {:noreply, socket}
   end
 
@@ -354,11 +371,11 @@ defmodule XTraceWeb.TraceLive do
     end
   end
 
-  defp validate_mfa("module", "", errors, all_loaded, local?, node, code_server_mode) do
+  defp validate_mfa("module", "", errors, all_loaded, self?, node, code_server_mode) do
     errors = Keyword.put(errors, :module, {"please enter module", []})
 
     all_loaded =
-      case {code_server_mode, local?} do
+      case {code_server_mode, self?} do
         {:interactive, true} -> all_loaded(:local)
         {:interactive, false} -> all_loaded(node)
         _ -> all_loaded
@@ -372,12 +389,12 @@ defmodule XTraceWeb.TraceLive do
      }, errors}
   end
 
-  defp validate_mfa("module", "_", errors, all_loaded, _local?, _node, _code_server_mode) do
+  defp validate_mfa("module", "_", errors, all_loaded, _self?, _node, _code_server_mode) do
     errors = Keyword.put(errors, :module, {"module can't defined as '_'", []})
     {%{module_list: all_loaded, fun_list: @default_fun_list, add_tspec_disabled: false}, errors}
   end
 
-  defp validate_mfa("module", module, errors, all_loaded, local?, node, code_server_mode) do
+  defp validate_mfa("module", module, errors, all_loaded, self?, node, code_server_mode) do
     module_list = Enum.filter(all_loaded, &String.starts_with?(&1, module))
 
     {fun_list, errors} =
@@ -386,7 +403,7 @@ defmodule XTraceWeb.TraceLive do
       else
         try_load? = code_server_mode == :interactive
 
-        case {local?, try_load?} do
+        case {self?, try_load?} do
           {true, true} -> to_module(module) |> Code.ensure_loaded()
           {false, true} -> ensure_loaded(node, module)
           _ -> {:error, :nofile}
@@ -394,7 +411,7 @@ defmodule XTraceWeb.TraceLive do
       end
       |> case do
         {:module, m} ->
-          {fun_list(local?, node, m), Keyword.delete(errors, :module)}
+          {fun_list(self?, node, m), Keyword.delete(errors, :module)}
 
         _ ->
           {["_"], Keyword.put(errors, :module, {"not found", []})}
@@ -404,10 +421,10 @@ defmodule XTraceWeb.TraceLive do
     {%{module_list: module_list, fun_list: fun_list, add_tspec_disabled: not enable}, errors}
   end
 
-  defp validate_pid(pid, errors, local?, node) do
+  defp validate_pid(pid, errors, self?, node) do
     pid = :recon_lib.term_to_pid("<#{pid}>")
 
-    if local? do
+    if self? do
       Process.alive?(pid)
     else
       call(node, :erlang, :is_process_alive, [pid])
@@ -542,7 +559,7 @@ defmodule XTraceWeb.TraceLive do
     |> Kernel.--(@banned_mods)
   end
 
-  defp all_loaded(:local), do: _all_loaded(:code.all_loaded())
+  defp all_loaded(:local), do: :code.all_loaded() |> _all_loaded()
   defp all_loaded(node), do: call(node, :code, :all_loaded, []) |> _all_loaded()
 
   defp _fun_list(functions) do
@@ -597,14 +614,14 @@ defmodule XTraceWeb.TraceLive do
   defp update_node(node) do
     local = Node.self()
 
-    {local?, all_loaded, code_server_mode} =
+    {self?, all_loaded, code_server_mode} =
       if node == local do
         {true, all_loaded(:local), :code.get_mode()}
       else
         {false, all_loaded(node), call(node, :code, :get_mode, [])}
       end
 
-    %{node: node, local?: local?, all_loaded: all_loaded, code_server_mode: code_server_mode}
+    %{node: node, self?: self?, all_loaded: all_loaded, code_server_mode: code_server_mode}
   end
 
   defp pids_empty?(options) do
@@ -619,15 +636,17 @@ defmodule XTraceWeb.TraceLive do
 
   defp init_form do
     {node, nodes} = fetch_nodes()
-    domain = :net_adm.localhost() |> to_string()
-    form = %{@default_params | "node" => node, "node_domain" => domain} |> _to_form()
+    domains = [:net_adm.localhost() | :net_adm.host_file()] |> Enum.map(&to_string/1)
+    form = %{@default_params | "node_domain" => hd(domains)} |> _to_form()
     module_list = all_loaded(:local)
 
     %{
       form: form,
-      local?: true,
+      self?: true,
       node: node,
       nodes: nodes,
+      domain: hd(domains),
+      domains: domains,
       all_loaded: module_list,
       t_specs: [],
       max: {10, 1000},
@@ -676,7 +695,7 @@ defmodule XTraceWeb.TraceLive do
 
     %{
       form: form,
-      local?: true,
+      self?: true,
       node: node,
       nodes: nodes,
       all_loaded: module_list,
