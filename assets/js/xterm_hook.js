@@ -14,10 +14,16 @@ const xterm_hook = {
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     term.open(this.el)
+
     fitAddon.fit()
+    cc.pushEvent("term-cols", {cols: term.cols})
+
     term.focus()
     window.term = term
-    window.addEventListener("resize", () => fitAddon.fit())
+    window.addEventListener("resize", () => {
+      fitAddon.fit()
+      cc.pushEvent("term-cols", {cols: term.cols})
+    })
 
     this.handleEvent("outputs", function(e) {
       let data = e.data

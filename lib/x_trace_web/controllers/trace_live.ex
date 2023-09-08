@@ -334,6 +334,12 @@ defmodule XTraceWeb.TraceLive do
     {:noreply, assign(socket, :menu?, not socket.assigns.menu?)}
   end
 
+  def handle_event("term-cols", %{"cols" => cols}, socket) do
+    width = max(20, cols - 10)
+    Application.put_env(:extrace, :inspect_opts, [pretty: true, width: width])
+    {:noreply, socket}
+  end
+
   @impl true
   def handle_info({:io_stream, msg}, socket) do
     {:noreply, push_event(socket, "outputs", %{data: msg})}
@@ -609,8 +615,7 @@ defmodule XTraceWeb.TraceLive do
 
   defp update_local_node(%{source: params, errors: errors}) do
     {node, nodes} = fetch_nodes()
-    form = params |> Map.put("node", node) |> _to_form(errors)
-    update_node(node) |> Map.merge(%{nodes: nodes, form: form})
+    update_node(node) |> Map.merge(%{nodes: nodes, form: _to_form(params, errors)})
   end
 
   defp update_node(node) do
@@ -670,7 +675,7 @@ defmodule XTraceWeb.TraceLive do
     domain = :net_adm.localhost() |> to_string()
 
     form =
-      %{@default_params | "node" => node, "node_domain" => domain}
+      %{@default_params | "node_domain" => domain}
       |> then(fn params ->
         case max do
           max when is_integer(max) ->
