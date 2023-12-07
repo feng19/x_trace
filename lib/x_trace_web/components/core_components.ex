@@ -145,7 +145,6 @@ defmodule XTraceWeb.CoreComponents do
     <.flash kind={:info} title="Success!" flash={@flash} />
     <.flash kind={:error} title="Error!" flash={@flash} />
     <.flash
-      id="disconnected"
       id="client-error"
       kind={:error}
       title="We can't find the internet"

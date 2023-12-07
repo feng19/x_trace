@@ -58,8 +58,7 @@ defmodule XTraceWeb.TraceLive do
     Process.flag(:trap_exit, true)
     group_leader = Process.group_leader()
     code_server_mode = :code.get_mode()
-    # ping world nodes
-    :net_adm.world()
+    init_erlang_distributed()
 
     socket =
       socket
@@ -336,7 +335,7 @@ defmodule XTraceWeb.TraceLive do
 
   def handle_event("term-cols", %{"cols" => cols}, socket) do
     width = max(20, cols - 10)
-    Application.put_env(:extrace, :inspect_opts, [pretty: true, width: width])
+    Application.put_env(:extrace, :inspect_opts, pretty: true, width: width)
     {:noreply, socket}
   end
 
@@ -730,4 +729,14 @@ defmodule XTraceWeb.TraceLive do
     do: Exception.format(error, reason, stacktrace)
 
   defp format_calls_return(error), do: inspect(error)
+
+  defp init_erlang_distributed do
+    # Make Sure Host File
+    with {:error, :enoent} <- :net_adm.host_file() do
+      File.write!("./.hosts.erlang", "'127.0.0.1'.\n")
+    end
+
+    # ping world nodes
+    :net_adm.world()
+  end
 end
