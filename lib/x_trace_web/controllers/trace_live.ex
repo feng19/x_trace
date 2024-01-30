@@ -51,6 +51,10 @@ defmodule XTraceWeb.TraceLive do
 
       If either the pid specification excludes a process or a trace
       pattern excludes a given call, no trace will be received.
+
+
+  !! Click [Menu] Button to start setting & trace. !!
+
   """
 
   @impl true
