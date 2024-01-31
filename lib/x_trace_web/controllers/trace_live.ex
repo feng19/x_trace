@@ -241,7 +241,9 @@ defmodule XTraceWeb.TraceLive do
     socket =
       try do
         map = node |> String.to_existing_atom() |> update_node()
+
         assign(socket, map)
+        |> put_flash(:info, "Connect to #{node} succeed!")
       catch
         _, _ -> put_flash(socket, :error, "bad node: #{node}")
       end

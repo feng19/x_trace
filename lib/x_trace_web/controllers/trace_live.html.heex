@@ -49,7 +49,8 @@
                 <div class="grid grid-cols-2 gap-4">
                   <.input field={f[:connect_node]} label="Node to connect" placeholder="name@domain" />
                   <.input field={f[:connect_cookie]} label="Cookie" />
-                  <.button type="button" class="w-full" phx-click="connect-node">Connect</.button>
+                  <.button type="button" class="w-full" phx-click="connect-node"
+                    disabled={is_nil(f[:connect_node].value) || f[:connect_node].value == ""}>Connect</.button>
                   <.button type="button" class="w-full" phx-click="reset-node">Reset node</.button>
                 </div>
               <% else %>
@@ -217,9 +218,9 @@
         <div class="space-y-4">
           <div>
             <span class="cursor-pointer text-xl font-bold" phx-click="set-tab" phx-value-tab="node">Node:</span><br/>
-            self node: <%= @self? %><br/>
-            code server mode: <%= @code_server_mode %><br/>
-            trace node: <span class="select-all"><%= @node %></span>
+            Is Self Node: <%= @self? %><br/>
+            Code Server mode: <%= @code_server_mode %><br/>
+            Trace Node: <span class="select-all font-bold"><%= @node %></span>
           </div>
 
           <div>
