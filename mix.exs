@@ -36,13 +36,14 @@ defmodule XTrace.MixProject do
       {:phoenix_live_view, "~> 0.19.0"},
       {:floki, ">= 0.30.0", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.0"},
-      {:esbuild, "~> 0.7", runtime: Mix.env() == :dev},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.2.0", runtime: Mix.env() == :dev},
       {:telemetry_metrics, "~> 0.6"},
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:plug_cowboy, "~> 2.5"},
-      {:extrace, "~> 0.5"}
+      {:extrace, "~> 0.5"},
+      {:burrito, "~> 1.0"}
     ]
   end
 
@@ -68,7 +69,16 @@ defmodule XTrace.MixProject do
         applications: [x_trace: :permanent],
         include_erts: true,
         include_executables_for: [:unix, :windows],
-        steps: [:assemble]
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            macos: [os: :darwin, cpu: :x86_64],
+            macos_aarch64: [os: :darwin, cpu: :aarch64],
+            linux: [os: :linux, cpu: :x86_64],
+            linux_aarch64: [os: :linux, cpu: :aarch64],
+            windows: [os: :windows, cpu: :x86_64]
+          ]
+        ]
       ]
     ]
   end
