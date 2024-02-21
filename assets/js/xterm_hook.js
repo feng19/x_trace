@@ -40,7 +40,7 @@ const xterm_hook = {
     })
     this.handleEvent("clear", _e => term.clear())
 
-    this.handleEvent("download", function(_e) {
+    this.handleEvent("download-logs", function(_e) {
       term.selectAll()
       let text = term.getSelection().trim()
       term.clearSelection()

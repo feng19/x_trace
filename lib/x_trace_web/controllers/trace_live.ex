@@ -81,6 +81,10 @@ defmodule XTraceWeb.TraceLive do
   end
 
   @impl true
+  def handle_event("validate", %{"_target" => ["ls-upload"]}, socket) do
+    {:noreply, socket}
+  end
+
   def handle_event("validate", params, socket) do
     assigns = socket.assigns
     old_form = assigns.form
@@ -189,8 +193,8 @@ defmodule XTraceWeb.TraceLive do
     {:noreply, push_event(socket, "copy", %{})}
   end
 
-  def handle_event("download", _params, socket) do
-    {:noreply, push_event(socket, "download", %{})}
+  def handle_event("download-logs", _params, socket) do
+    {:noreply, push_event(socket, "download-logs", %{})}
   end
 
   def handle_event("setup-node", _params, socket) do
@@ -317,11 +321,13 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("save-settings", _, socket) do
-    item = socket.assigns |> Map.take([:t_specs, :max, :options])
-    data = :erlang.term_to_binary(item) |> Base.encode64()
+    settings = socket.assigns |> Map.take([:t_specs, :max, :options])
+    Logger.info("save settings: #{inspect(settings, limit: :infinity)}")
+
+    data = :erlang.term_to_binary(settings) |> Base.encode64()
 
     item =
-      Map.new(item, fn {k, v} -> {k, inspect_value(v)} end)
+      Map.new(settings, fn {k, v} -> {k, inspect_value(v)} end)
       |> Map.put(:data, data)
 
     {:reply, item, assign(socket, :tab, "local-settings")}
@@ -417,13 +423,21 @@ defmodule XTraceWeb.TraceLive do
         try_load? = code_server_mode == :interactive
 
         case {self?, try_load?} do
-          {true, true} -> to_module(module) |> Code.ensure_loaded()
-          {false, true} -> ensure_loaded(node, module)
-          _ -> {:error, :nofile}
+          {true, true} ->
+            case to_module(module) do
+              {:error, _} = error -> error
+              m -> Code.ensure_loaded(m)
+            end
+
+          {false, true} ->
+            ensure_loaded(node, module)
+
+          _ ->
+            {:error, :nofile}
         end
       end
       |> case do
-        {:module, m} ->
+        {:module, m} when is_atom(m) ->
           {fun_list(self?, node, m), Keyword.delete(errors, :module)}
 
         _ ->
@@ -609,6 +623,8 @@ defmodule XTraceWeb.TraceLive do
     else
       String.to_existing_atom(module)
     end
+  catch
+    _, _ -> {:error, :not_existing}
   end
 
   defp elixir_node?(node) do
@@ -673,9 +689,10 @@ defmodule XTraceWeb.TraceLive do
   end
 
   defp apply_settings(data) do
-    %{t_specs: t_specs, max: max, options: options} =
-      data |> Base.decode64!() |> :erlang.binary_to_term()
+    settings = data |> Base.decode64!() |> :erlang.binary_to_term()
+    Logger.info("apply settings: #{inspect(settings, limit: :infinity)}")
 
+    %{t_specs: t_specs, max: max, options: options} = settings
     {node, nodes} = fetch_nodes()
     domain = :net_adm.localhost() |> to_string()
 
