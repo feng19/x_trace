@@ -1,6 +1,6 @@
 defmodule XTraceWeb.TraceLive do
   use XTraceWeb, :live_view
-  alias XTrace.IoServer
+  alias XTrace.{IoServer, NodeListener}
   require Logger
 
   @default_params %{
@@ -62,7 +62,6 @@ defmodule XTraceWeb.TraceLive do
     Process.flag(:trap_exit, true)
     group_leader = Process.group_leader()
     code_server_mode = :code.get_mode()
-    init_erlang_distributed()
 
     socket =
       socket
@@ -77,6 +76,7 @@ defmodule XTraceWeb.TraceLive do
       |> push_event("outputs", %{data: @hello_msg})
 
     Phoenix.PubSub.subscribe(XTrace.PubSub, IoServer.topic())
+    Phoenix.PubSub.subscribe(XTrace.PubSub, NodeListener.topic())
     {:ok, socket}
   end
 
@@ -159,6 +159,7 @@ defmodule XTraceWeb.TraceLive do
 
   def handle_event("trace", _params, socket) do
     %{self?: self?, node: node, t_specs: t_specs, max: max, options: options} = socket.assigns
+    IoServer.puts("start tracing on node: #{node}")
 
     msg =
       if self? do
@@ -220,8 +221,7 @@ defmodule XTraceWeb.TraceLive do
             cookie |> String.to_atom() |> Node.set_cookie()
           end
 
-          # ping world nodes
-          :net_adm.world()
+          NodeListener.start_monitor()
 
           socket
           |> assign(domain: domain)
@@ -235,6 +235,7 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("reset-node", _params, socket) do
+    NodeListener.stop_monitor()
     Node.stop()
     Process.sleep(100)
     socket = assign(socket, update_local_node(socket.assigns.form))
@@ -334,7 +335,20 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("apply-settings", data, socket) do
-    {:noreply, assign(socket, apply_settings(data))}
+    connecting_node = socket.assigns.node
+    updates = apply_settings(data, connecting_node)
+
+    socket =
+      case updates.node do
+        ^connecting_node ->
+          assign(socket, updates)
+
+        new_node ->
+          assign(socket, updates)
+          |> put_flash(:info, "Connect to #{new_node} succeed!")
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("set-tab", %{"tab" => tab}, socket) do
@@ -358,6 +372,37 @@ defmodule XTraceWeb.TraceLive do
 
   def handle_info({:EXIT, _pid, :normal}, socket) do
     Process.group_leader(self(), socket.assigns.group_leader)
+    {:noreply, socket}
+  end
+
+  def handle_info({:nodeup, _node, _node_type}, socket) do
+    socket = assign(socket, update_local_node(socket.assigns.form))
+    {:noreply, socket}
+  end
+
+  def handle_info({:nodedown, node, _node_type}, socket) do
+    %{form: form, node: connecting_node} = socket.assigns
+    updates = update_local_node(form)
+
+    socket =
+      if connecting_node == node do
+        assign(socket, updates)
+        |> push_event("outputs", %{
+          data: """
+          ==============================================================
+          WARNING!!! connecting node: #{node} was downed.
+          NOW!!! changed to node: #{updates.node}
+          ==============================================================
+          """
+        })
+        |> put_flash(
+          :info,
+          "WARNING!!! #{node} was downed, changed to connect node: #{updates.node}"
+        )
+      else
+        assign(socket, updates)
+      end
+
     {:noreply, socket}
   end
 
@@ -688,12 +733,20 @@ defmodule XTraceWeb.TraceLive do
     }
   end
 
-  defp apply_settings(data) do
+  defp apply_settings(data, connecting_node) do
     settings = data |> Base.decode64!() |> :erlang.binary_to_term()
     Logger.info("apply settings: #{inspect(settings, limit: :infinity)}")
 
     %{t_specs: t_specs, max: max, options: options} = settings
     {node, nodes} = fetch_nodes()
+
+    node =
+      if to_string(connecting_node) in nodes do
+        connecting_node
+      else
+        node
+      end
+
     domain = :net_adm.localhost() |> to_string()
 
     form =
@@ -752,14 +805,4 @@ defmodule XTraceWeb.TraceLive do
     do: Exception.format(error, reason, stacktrace)
 
   defp format_calls_return(error), do: inspect(error)
-
-  defp init_erlang_distributed do
-    # Make Sure Host File
-    with {:error, :enoent} <- :net_adm.host_file() do
-      File.write!("./.hosts.erlang", "'127.0.0.1'.\n")
-    end
-
-    # ping world nodes
-    :net_adm.world()
-  end
 end

@@ -13,10 +13,9 @@ defmodule XTrace.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: XTrace.PubSub},
       XTrace.IoServer,
+      XTrace.NodeListener,
       # Start the Endpoint (http/https)
       XTraceWeb.Endpoint
-      # Start a worker by calling: XTrace.Worker.start_link(arg)
-      # {XTrace.Worker, arg}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
