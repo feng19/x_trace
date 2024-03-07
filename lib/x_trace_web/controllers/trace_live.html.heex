@@ -48,7 +48,7 @@
               <%= if @node != :"nonode@nohost" do %>
                 <div class="grid grid-cols-2 gap-4">
                   <.input field={f[:connect_node]} label="Node to connect" placeholder="name@domain" />
-                  <.input field={f[:connect_cookie]} label="Cookie" />
+                  <.input field={f[:connect_cookie]} label="Cookie" placeholder="if empty will use value of Node.get_cookie()" />
                   <.button type="button" class="w-full" phx-click="connect-node"
                     disabled={is_nil(f[:connect_node].value) || f[:connect_node].value == ""}>Connect</.button>
                   <.button type="button" class="w-full" phx-click="reset-node">Reset node</.button>
@@ -73,7 +73,7 @@
                   
                   <div></div>
                   <.input field={f[:is_long_name]} label="LongName" type="checkbox" />
-                  <.input field={f[:cookie]} label="Cookie" />
+                  <.input field={f[:cookie]} label="Cookie" placeholder="if empty will use value of ~/.erlang.cookie" />
                   <.button type="button" class="mt-8" phx-click="setup-node">Setup</.button>
                 </div>
               <% end %>

@@ -218,8 +218,11 @@ defmodule XTraceWeb.TraceLive do
       case Node.start(node_name, node_type) do
         {:ok, _} ->
           if cookie != "" do
-            cookie |> String.to_atom() |> Node.set_cookie()
+            cookie |> String.to_atom()
+          else
+            get_host_cookie()
           end
+          |> Node.set_cookie()
 
           NodeListener.start_monitor()
 
@@ -406,10 +409,6 @@ defmodule XTraceWeb.TraceLive do
     {:noreply, socket}
   end
 
-  defp _to_form(params, errors \\ []) do
-    to_form(params, errors: errors)
-  end
-
   defp validate_max(params, errors) do
     case check_integer(params, "max") do
       {:ok, max} when max > 1000 ->
@@ -449,13 +448,13 @@ defmodule XTraceWeb.TraceLive do
        all_loaded: all_loaded,
        module_list: all_loaded,
        fun_list: @default_fun_list,
-       add_tspec_disabled: false
+       add_tspec_disabled: true
      }, errors}
   end
 
   defp validate_mfa("module", "_", errors, all_loaded, _self?, _node, _code_server_mode) do
     errors = Keyword.put(errors, :module, {"module can't defined as '_'", []})
-    {%{module_list: all_loaded, fun_list: @default_fun_list, add_tspec_disabled: false}, errors}
+    {%{module_list: all_loaded, fun_list: @default_fun_list, add_tspec_disabled: true}, errors}
   end
 
   defp validate_mfa("module", module, errors, all_loaded, self?, node, code_server_mode) do
@@ -733,6 +732,10 @@ defmodule XTraceWeb.TraceLive do
     }
   end
 
+  defp _to_form(params, errors \\ []) do
+    to_form(params, errors: errors)
+  end
+
   defp apply_settings(data, connecting_node) do
     settings = data |> Base.decode64!() |> :erlang.binary_to_term()
     Logger.info("apply settings: #{inspect(settings, limit: :infinity)}")
@@ -805,4 +808,13 @@ defmodule XTraceWeb.TraceLive do
     do: Exception.format(error, reason, stacktrace)
 
   defp format_calls_return(error), do: inspect(error)
+
+  defp get_host_cookie do
+    Path.expand("~/.erlang.cookie")
+    |> File.read()
+    |> case do
+      {:ok, cookie} -> String.trim(cookie) |> String.to_atom()
+      _ -> Node.get_cookie()
+    end
+  end
 end
