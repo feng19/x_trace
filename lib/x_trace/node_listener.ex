@@ -23,7 +23,7 @@ defmodule XTrace.NodeListener do
   def init(_) do
     init_erlang_distributed()
     :timer.send_interval(1000, self(), :tick)
-    {:ok, nil}
+    {:ok, false}
   end
 
   @impl true
@@ -38,7 +38,7 @@ defmodule XTrace.NodeListener do
   end
 
   def handle_info(:tick, state) do
-    :net_adm.world()
+    if state, do: :net_adm.world()
     {:noreply, state}
   end
 
@@ -48,11 +48,11 @@ defmodule XTrace.NodeListener do
   end
 
   @impl true
-  def handle_call({:monitor, bool}, _from, state) do
+  def handle_call({:monitor, bool}, _from, _state) do
     # ping world nodes
     :net_adm.world()
     :net_kernel.monitor_nodes(bool, node_type: :all)
-    {:reply, :ok, state}
+    {:reply, :ok, bool}
   end
 
   defp init_erlang_distributed do
