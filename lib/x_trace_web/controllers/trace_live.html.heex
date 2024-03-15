@@ -120,8 +120,10 @@
                   <option :for={a <- @args_list}><%= a %></option>
                 </datalist>
               </div>
-              <div class="text-center">
-                <.button type="button" phx-click="add-tspec" class="w-1/2" disabled={@add_tspec_disabled}>Add</.button>
+              <div class="flex flex-col space-y-4 items-center">
+                <.button type="button" class="md:w-1/2" phx-click="add-tspec" disabled={@add_tspec_disabled}>Add</.button>
+                <.button type="button" class="md:w-1/2" phx-click="set-tab" phx-value-tab="max">Goto MAX Tab</.button>
+                <.button type="button" class="md:w-1/2" phx-click="trace" disabled={@disabled}>Start Trace</.button>
               </div>
             </div>
 
@@ -133,9 +135,16 @@
               value.
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="mx-auto max-w-lg space-y-4">
                 <.input field={f[:max]} label="Max" type="number" />
                 <.input field={f[:milliseconds]} label="Milliseconds" type="number" />
+                <div class="grid grid-cols-2 gap-4">
+                  <.button type="button" phx-click="set-tab" phx-value-tab="specs">Backto SPECS Tab</.button>
+                  <.button type="button" phx-click="set-tab" phx-value-tab="options">Goto OPTIONS Tab</.button>
+                </div>
+                <div class="text-center">
+                  <.button type="button" class="md:w-1/2" phx-click="trace" disabled={@disabled}>Start Trace</.button>
+                </div>
               </div>
             </div>
 
@@ -165,11 +174,19 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="mx-auto max-w-lg space-y-4">
                 <.input field={f[:scope]} label="Scope" type="select" options={~w"global local"} />
                 <.input field={f[:pid]} label="Pid type" type="select" options={~w"all new existing pid"} />
-                <.input field={f[:pid_str]} label="Pid" placeholder="A.B.C" :if={f[:pid].value == "pid"} />
-                <.button type="button" class="mt-8" phx-click="add-pid" :if={f[:pid].value == "pid"} disabled={@add_pid_disabled}>Add</.button>
+                <div class="grid grid-cols-2 gap-4" :if={f[:pid].value == "pid"}>
+                  <.input field={f[:pid_str]} label="Pid" placeholder="A.B.C"  />
+                  <div class="h-full mt-8">
+                    <.button type="button" class="w-full" phx-click="add-pid" disabled={@add_pid_disabled}>Add</.button>
+                  </div>
+                </div>
+                <div class="flex flex-col space-y-4 items-center">
+                <.button type="button" class="md:w-1/2" phx-click="set-tab" phx-value-tab="max">Backto MAX Tab</.button>
+                <.button type="button" class="md:w-1/2" phx-click="trace" disabled={@disabled}>Start Trace</.button>
+              </div>
               </div>
             </div>
 
