@@ -531,7 +531,7 @@ defmodule XTraceWeb.TraceLive do
     io_server = IoServer.pid()
     Process.group_leader(self(), io_server)
     ensure_loaded(t_specs)
-    IoServer.puts("Extrace.calls(#{inspect(t_specs)}, #{inspect(max)}, #{inspect(options)}")
+    IoServer.puts("Extrace.calls(#{inspect(t_specs)}, #{inspect(max)}, #{inspect(options)})")
 
     Extrace.calls(t_specs, max, [{:io_server, io_server} | options])
     |> format_calls_return()
@@ -572,7 +572,7 @@ defmodule XTraceWeb.TraceLive do
 
     ensure_loaded(node, t_specs)
 
-    IoServer.puts("Extrace.calls(#{inspect(t_specs)}, #{inspect(max)}, #{inspect(options)}")
+    IoServer.puts("Extrace.calls(#{inspect(t_specs)}, #{inspect(max)}, #{inspect(options)})")
 
     call(node, XTrace.Executor, :calls, [t_specs, max, options, io_server])
     |> format_calls_return()

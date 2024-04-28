@@ -22,6 +22,7 @@ defmodule XTrace.IoServer do
         {:put_chars, :unicode, m, f, a} -> put_chars(m, f, a)
       end
 
+    IO.puts(msg)
     Phoenix.PubSub.broadcast(XTrace.PubSub, @topic, {:io_stream, msg})
     send(from, {:io_reply, reply_as, :ok})
     {:noreply, state}
