@@ -8,13 +8,12 @@ defmodule XTrace.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Start the Telemetry supervisor
       XTraceWeb.Telemetry,
-      # Start the PubSub system
+      {DNSCluster, query: Application.get_env(:x_trace, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: XTrace.PubSub},
       XTrace.IoServer,
       XTrace.NodeListener,
-      # Start the Endpoint (http/https)
+      # Start to serve requests, typically the last entry
       XTraceWeb.Endpoint
     ]
 

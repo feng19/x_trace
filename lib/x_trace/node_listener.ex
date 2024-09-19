@@ -14,8 +14,8 @@ defmodule XTrace.NodeListener do
   @spec start_link(any) :: GenServer.on_start()
   def start_link(_), do: GenServer.start_link(__MODULE__, [], name: __MODULE__)
   def topic, do: @topic
-  def start_monitor, do: GenServer.call(__MODULE__, {:monitor, true})
-  def stop_monitor, do: GenServer.call(__MODULE__, {:monitor, false})
+  def start_monitor, do: GenServer.call(__MODULE__, {:monitor, true}, 10_000)
+  def stop_monitor, do: GenServer.call(__MODULE__, {:monitor, false}, 10_000)
 
   # GenServer callbacks
 

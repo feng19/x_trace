@@ -51,8 +51,7 @@ defmodule XTraceWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {XTraceWeb.Layouts, :app},
-        global_prefixes: ~w(x-)
+        layout: {XTraceWeb.Layouts, :app}
 
       unquote(html_helpers())
     end
@@ -85,7 +84,7 @@ defmodule XTraceWeb do
       import Phoenix.HTML
       # Core UI components and translation
       import XTraceWeb.CoreComponents
-
+      import LiveSvelte
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
 
@@ -104,7 +103,7 @@ defmodule XTraceWeb do
   end
 
   @doc """
-  When used, dispatch to the appropriate controller/view/etc.
+  When used, dispatch to the appropriate controller/live_view/etc.
   """
   defmacro __using__(which) when is_atom(which) do
     apply(__MODULE__, which, [])

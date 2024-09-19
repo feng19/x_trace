@@ -16,14 +16,16 @@ defmodule XTrace.IoServer do
   end
 
   def handle_info({:io_request, from, reply_as, request}, state) do
-    msg =
-      case request do
-        {:put_chars, :unicode, chars} -> put_chars(chars)
-        {:put_chars, :unicode, m, f, a} -> put_chars(m, f, a)
-      end
+    case request do
+      {:put_chars, :unicode, chars} -> put_chars(chars)
+      {:put_chars, :unicode, :io_lib, :format, [:xtrace_ignore_me | _]} -> :ignore
+      {:put_chars, :unicode, m, f, a} -> put_chars(m, f, a)
+    end
+    |> case do
+      :ignore -> :ignore
+      msg -> Phoenix.PubSub.broadcast(XTrace.PubSub, @topic, {:io_stream, msg})
+    end
 
-    IO.puts(msg)
-    Phoenix.PubSub.broadcast(XTrace.PubSub, @topic, {:io_stream, msg})
     send(from, {:io_reply, reply_as, :ok})
     {:noreply, state}
   end

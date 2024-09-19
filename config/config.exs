@@ -7,30 +7,24 @@
 # General application configuration
 import Config
 
+config :x_trace,
+  generators: [timestamp_type: :utc_datetime]
+
 # Configures the endpoint
 config :x_trace, XTraceWeb.Endpoint,
   url: [host: "localhost"],
+  adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: XTraceWeb.ErrorHTML, json: XTraceWeb.ErrorJSON],
     layout: false
   ],
   pubsub_server: XTrace.PubSub,
-  live_view: [signing_salt: "1+r3XuKc"]
-
-# Configure esbuild (the version is required)
-config :esbuild,
-  version: "0.17.11",
-  default: [
-    args:
-      ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
-    cd: Path.expand("../assets", __DIR__),
-    env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
-  ]
+  live_view: [signing_salt: "mK2vMc0m"]
 
 # Configure tailwind (the version is required)
 config :tailwind,
-  version: "3.4.0",
-  default: [
+  version: "3.4.3",
+  x_trace: [
     args: ~w(
       --config=tailwind.config.js
       --input=css/app.css

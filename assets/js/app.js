@@ -21,23 +21,17 @@ import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
-import {Terminal} from "../vendor/xterm"
-import Alpine from "../vendor/alpine.js"
-import xterm_hook from "./xterm_hook";
-import local_settings from "./local_settings";
-
-window.Alpine = Alpine
-let cc = {
-  // hook agent
-  mounted() { window.cc = this }
-}
-
-let hooks = {xterm_hook, cc}
+import {getHooks} from "live_svelte"
+import * as Components from "../svelte/**/*.svelte"
+const svelteHooks = getHooks(Components);
+import { createLiveJsonHooks } from 'live_json';
+const liveJsonHooks = createLiveJsonHooks();
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
-  params: {_csrf_token: csrfToken},
-  hooks: hooks
+  longPollFallbackMs: 2500,
+  hooks: {...svelteHooks, ...liveJsonHooks},
+  params: {_csrf_token: csrfToken}
 })
 
 // Show progress bar on live navigation and form submits
@@ -47,12 +41,9 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
-Alpine.data('local_settings', () => local_settings)
-Alpine.start()
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
-window.Terminal = Terminal

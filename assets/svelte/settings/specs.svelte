@@ -1,0 +1,83 @@
+<script>
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Checkbox } from "$lib/components/ui/checkbox/index.js";
+  import { Label } from "$lib/components/ui/label/index.js";
+  import Combobox from "$lib/components/combobox.svelte";
+  import Switch from "$lib/components/switch.svelte";
+  import X from "lucide-svelte/icons/x";
+  import Plus from "lucide-svelte/icons/plus";
+  import { flip } from 'svelte/animate';
+  import { fade } from 'svelte/transition';
+
+  export let live;
+  export let t_specs;
+  export let app;
+  export let module;
+  export let fun;
+  export let args;
+  export let enable;
+  export let app_list;
+  export let module_list;
+  export let fun_list;
+  export let args_list;
+
+  let args_str;
+  $: {
+    if(typeof(args) === "number"){
+      args_str = args.toString();
+    } else {
+      args_str = args;
+    }
+  }
+  $: m_list = [{value: "_", label: "All Modules"}, ...(module_list.map(x => ({value: x, label: x})))]
+  $: f_list = [{value: "_", label: "All Functions"}, ...(fun_list.map(x => ({value: x, label: x})))]
+  $: a_list = [{value: "_", label: "All Arguments"}, ...(args_list.map(x => ({value: x, label: x})))]
+  let app_switch_items = [{value: "_one", label: "One App"}, {value: "all", label: "All App"}];
+</script>
+
+<div class="mb-4 px-2 text-center grid grid-cols-2 gap-2 items-center">
+  {#each t_specs as t_spec, index(t_spec)}
+  <div class="relative group cursor-default" animate:flip={{duration: 250}} transition:fade>
+    <div phx-click="del-tspec" phx-value-index={index} class="absolute right-2 top-2
+    transition ease-in-out delay-150 hover:cursor-pointer hover:scale-120 hover:text-red-500 duration-300
+    invisible group-hover:visible">
+      <X class="size-6" />
+    </div>
+    <p id={"t-spec-"+index}>{t_spec}</p>
+  </div>
+  {/each}
+</div>
+
+<div class="space-y-2 px-2">
+  <Switch id="app_switch" items={app_switch_items} value={app === "all" ? "all" : "_one"} onValueChange={(value) => app = value } />
+  {#if app !== "all"}
+  <div class="grid grid-cols-6 gap-2 items-center" transition:fade>
+    <Label for="app-list">App</Label>
+    <div class="col-span-5 flex flex-col">
+      <Combobox {live} event_name="app-changed" value={app} datalist={app_list.map(x => ({value: x, label: x}))}/>
+    </div>
+  </div>
+  {/if}
+
+  <div class="grid grid-cols-6 gap-2 items-center">
+    <Label for="module-list">Mod</Label>
+    <div class="col-span-5 flex flex-col">
+      <Combobox {live} event_name="module-changed" value={module.replace(/^Elixir\./, "")} datalist={m_list} try_to_button/>
+    </div>
+  </div>
+  <div class="grid grid-cols-6 gap-2 items-center">
+    <Label for="fun-list">Fun</Label>
+    <div class="col-span-5 flex flex-col">
+      <Combobox {live} event_name="fun-changed" value={fun} datalist={f_list}/>
+    </div>
+  </div>
+  <div class="grid grid-cols-6 gap-2 items-center">
+    <Label for="args-list">Args</Label>
+    <div class="col-span-5 flex flex-col">
+      <Combobox {live} event_name="args-changed" value={args_str} datalist={a_list}/>
+    </div>
+  </div>
+  <Button class="w-full flex items-center justify-center gap-2" disabled={!enable} phx-click="add-tspec">
+    <Plus class="size-4" /> Add Spec
+  </Button>
+</div>
