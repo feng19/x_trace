@@ -3,7 +3,15 @@ defmodule XTrace.TraceHelper do
   alias XTrace.{IoServer, NodeHelper, FormatHelper}
 
   @banned_mods ["recon_trace", "io", "lists"]
-  @deps_modules [XTrace.Executor, XTrace.Formatter, XTrace.LimitFormatter, :recon_trace, :recon_lib, :recon_rec, :recon_map]
+  @deps_modules [
+    XTrace.Executor,
+    XTrace.Formatter,
+    XTrace.LimitFormatter,
+    :recon_trace,
+    :recon_lib,
+    :recon_rec,
+    :recon_map
+  ]
 
   def cli_command(t_specs, max, options) do
     "Extrace.calls(#{inspect(t_specs, limit: :infinity)}, #{inspect(max)}, #{inspect(options, limit: :infinity)})"
@@ -167,13 +175,52 @@ defmodule XTrace.TraceHelper do
   end
 
   def module_list(:local), do: :code.all_loaded() |> _module_list()
-  def module_list(node), do: call(node, :code, :all_loaded, []) |> _module_list()
+
+  def module_list(node) when is_atom(node),
+    do: call(node, :code, :all_loaded, []) |> _module_list()
 
   defp _module_list(list) do
     for {module, _file} <- list do
       FormatHelper.format_module(module)
     end
     |> Kernel.--(@banned_mods)
+  end
+
+  def struct_list(%{is_self: self?} = node_info, module_list) do
+    if self? do
+      struct_list(:local, module_list)
+    else
+      struct_list(node_info.connected_node, module_list)
+    end
+  end
+
+  def struct_list(:local, module_list) do
+    Enum.reduce(module_list, [], fn module_str, acc ->
+      module = to_module(module_str)
+
+      if :erlang.function_exported(module, :__struct__, 0) do
+        fields = module.__struct__() |> Map.from_struct() |> Map.keys()
+        [%{module: module_str, fields: fields} | acc]
+      else
+        acc
+      end
+    end)
+  end
+
+  def struct_list(node, module_list) when is_atom(node) do
+    ensure_remote_loaded_deps_modules(node)
+    module_list = Enum.map(module_list, &to_module/1)
+
+    case call(node, XTrace.Executor, :fetch_struct_list, [module_list]) do
+      list when is_list(list) ->
+        Enum.map(list, fn {module, struct} ->
+          fields = struct |> Map.from_struct() |> Map.keys()
+          %{module: module, fields: fields}
+        end)
+
+      _ ->
+        []
+    end
   end
 
   def fun_list(true, _node, module) do

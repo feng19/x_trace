@@ -1,27 +1,28 @@
 <script>
   import { dashboardStore } from "./d_store.js";
-  import CopyClipBoard from '$lib/components/copy_clipboard.svelte';
+  import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import { Button, buttonVariants } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Separator } from "$lib/components/ui/select";
-  import Copy from "lucide-svelte/icons/copy";
-  import X from "lucide-svelte/icons/x";
+  import { Copy, X } from "lucide-svelte/icons";
 
   // export let live;
   const copy = () => {
     const app = new CopyClipBoard({
-      target: document.getElementById('clipboard'),
+      target: document.getElementById("clipboard"),
       props: { content: $dashboardStore.log.content.trim() },
     });
     app.$destroy();
-  }
+  };
 </script>
 
 <div class="grid grid-cols-1">
   <div class="sticky top-0 z-49">
     <div class="px-2 bg-white flex h-[52px] items-center justify-between">
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger class={buttonVariants({ variant: "ghost", size: "icon" })}>
+        <Tooltip.Trigger
+          class={buttonVariants({ variant: "ghost", size: "icon" })}
+        >
           <Button variant="link" size="icon" on:click={copy}>
             <Copy class="size-4" />
           </Button>
@@ -31,8 +32,14 @@
       </Tooltip.Root>
 
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger class={buttonVariants({ variant: "ghost", size: "icon" })}>
-          <Button variant="link" size="icon" on:click={() => dashboardStore.setLog(null)}>
+        <Tooltip.Trigger
+          class={buttonVariants({ variant: "ghost", size: "icon" })}
+        >
+          <Button
+            variant="link"
+            size="icon"
+            on:click={() => dashboardStore.setLog(null)}
+          >
             <X class="size-4" />
           </Button>
           <span class="sr-only">Close</span>

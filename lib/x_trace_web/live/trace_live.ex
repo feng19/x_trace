@@ -126,13 +126,18 @@ defmodule XTraceWeb.TraceLive do
   def handle_event("app-changed", "all", socket) do
     %{ljnode_info: node_info, ljt_spec: t_spec, ljspec_datalist: spec_datalist} = socket.assigns
     module_list = TraceHelper.module_list(node_info)
+    struct_list = TraceHelper.struct_list(node_info, module_list)
     defaults = Map.take(@default_t_spec, [:module, :fun, :enable])
     t_spec = Map.merge(t_spec, defaults) |> Map.put(:app, "all")
 
     socket =
       socket
       |> LiveJson.push_patch("t_spec", t_spec)
-      |> LiveJson.push_patch("spec_datalist", %{spec_datalist | module_list: module_list})
+      |> LiveJson.push_patch("spec_datalist", %{
+        spec_datalist
+        | module_list: module_list,
+          struct_list: struct_list
+      })
 
     {:noreply, socket}
   end
@@ -259,7 +264,6 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("del-tspec", %{"index" => index}, socket) do
-    index = String.to_integer(index)
     %{t_specs: t_specs, ljtrace_settings: trace_settings} = socket.assigns
     t_specs = List.delete_at(t_specs, index)
 
@@ -377,8 +381,6 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("del-pid", %{"index" => index}, socket) do
-    index = String.to_integer(index)
-
     %{ljoptions_settings: options_settings, ljtrace_settings: trace_settings, pids: pids} =
       socket.assigns
 
@@ -435,6 +437,111 @@ defmodule XTraceWeb.TraceLive do
 
   def handle_event("apply-settings", encoded, socket) do
     {:noreply, apply_settings(socket, encoded)}
+  end
+
+  def handle_event("remove-map-filter", %{"label" => label}, socket) do
+    label = String.to_existing_atom(label)
+    true = :recon_map.remove(label)
+
+    socket =
+      socket
+      |> update_filter_maps()
+      |> put_notice(:success, "Remove map filter succeed!")
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "add-map-filter",
+        %{"label" => label, "patterns" => pattern, "limits" => limit},
+        socket
+      ) do
+    socket =
+      try do
+        label = String.to_atom(label)
+
+        pattern =
+          Map.new(
+            pattern,
+            fn %{
+                 "key_type" => key_type,
+                 "key" => key,
+                 "value_type" => value_type,
+                 "value" => value
+               } ->
+              key = json_obj_by_type(key_type, key)
+              value = json_obj_by_type(value_type, value)
+
+              {key, value}
+            end
+          )
+
+        limit =
+          Enum.map(limit, fn %{"type" => type, "key" => key} ->
+            json_obj_by_type(type, key)
+          end)
+
+        :ok = :recon_map.limit(label, pattern, limit)
+        {:ok, "Add map filter succeed!"}
+      rescue
+        reason ->
+          reason = Exception.format(:error, reason, __STACKTRACE__)
+          {:error, "Add map filter failed! reason: #{inspect(reason)}"}
+      catch
+        error, reason ->
+          reason = Exception.format(error, reason, __STACKTRACE__)
+          {:error, "Add map filter failed! reason: #{inspect(reason)}"}
+      end
+      |> case do
+        {:ok, msg} ->
+          socket
+          |> update_filter_maps()
+          |> put_notice(:success, msg)
+
+        {:error, msg} ->
+          put_notice(socket, :warning, msg)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_event(
+        "add-record-filter",
+        %{"label" => label, "arity" => arity, "limits" => limit},
+        socket
+      ) do
+    socket =
+      try do
+        label = String.to_existing_atom(label)
+
+        limit =
+          Enum.map(limit, fn %{"type" => type, "key" => key} ->
+            json_obj_by_type(type, key)
+          end)
+
+        # todo :recon_rec.import
+        :ok = :recon_rec.limit(label, arity, limit)
+        {:ok, "Add record filter succeed!"}
+      rescue
+        reason ->
+          reason = Exception.format(:error, reason, __STACKTRACE__)
+          {:error, "Add record filter failed! reason: #{inspect(reason)}"}
+      catch
+        error, reason ->
+          reason = Exception.format(error, reason, __STACKTRACE__)
+          {:error, "Add record filter failed! reason: #{inspect(reason)}"}
+      end
+      |> case do
+        {:ok, msg} ->
+          socket
+          |> update_filter_records()
+          |> put_notice(:success, msg)
+
+        {:error, msg} ->
+          put_notice(socket, :warning, msg)
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -523,7 +630,10 @@ defmodule XTraceWeb.TraceLive do
   defp default_assigns(socket, node_info, assign_fun) do
     app_list = ["all" | TraceHelper.app_list(node_info)]
     module_list = TraceHelper.module_list(node_info)
+    struct_list = TraceHelper.struct_list(node_info, module_list)
     rate_limiting = %{max: 10, milliseconds: 1000}
+    maps = list_filter_maps()
+    records = list_filter_records()
 
     socket
     |> assign(t_specs: [], pids: [])
@@ -551,8 +661,14 @@ defmodule XTraceWeb.TraceLive do
     |> assign_fun.("spec_datalist", %{
       app_list: app_list,
       module_list: module_list,
+      struct_list: struct_list,
       fun_list: @default_fun_list,
       args_list: @default_args_list
+    })
+    |> assign_fun.("filters", %{
+      count: Enum.count(maps) + Enum.count(records),
+      maps: maps,
+      records: records
     })
   end
 
@@ -682,4 +798,77 @@ defmodule XTraceWeb.TraceLive do
   def max_to_rate_limiting(max) when is_integer(max), do: %{max: max}
 
   defp io_msg(content), do: %{time: System.system_time(), type: :io, pid: "", content: content}
+
+  defp json_obj_by_type("atom", value), do: String.to_atom(value)
+  defp json_obj_by_type("integer", value), do: String.to_integer(value)
+  defp json_obj_by_type(_type, value), do: to_string(value)
+
+  defp to_json_obj(value) when is_integer(value), do: {"integer", value}
+  defp to_json_obj(value) when is_atom(value), do: {"atom", to_string(value)}
+  defp to_json_obj(value), do: {"binary", to_string(value)}
+
+  defp update_filter_maps(socket) do
+    %{ljfilters: filters} = socket.assigns
+    maps = list_filter_maps()
+
+    LiveJson.push_patch(socket, "filters", %{
+      filters
+      | count: Enum.count(maps) + Enum.count(filters.records),
+        maps: maps
+    })
+  end
+
+  defp update_filter_records(socket) do
+    %{ljfilters: filters} = socket.assigns
+    records = list_filter_records()
+
+    LiveJson.push_patch(socket, "filters", %{
+      filters
+      | count: Enum.count(filters.maps) + Enum.count(records),
+        records: records
+    })
+  end
+
+  defp list_filter_maps do
+    if :recon_map.is_active() do
+      :ets.tab2list(:recon_map_patterns)
+      |> Enum.map(fn {label, pattern, limit} ->
+        pattern =
+          Enum.map(pattern, fn {key, value} ->
+            {key_type, key} = to_json_obj(key)
+            {value_type, value} = to_json_obj(value)
+
+            %{
+              "key_type" => key_type,
+              "key" => key,
+              "value_type" => value_type,
+              "value" => value
+            }
+          end)
+
+        limit =
+          Enum.map(limit, fn key ->
+            {type, key} = to_json_obj(key)
+            %{"type" => type, "key" => key}
+          end)
+
+        %{"label" => to_string(label), "patterns" => pattern, "limits" => limit}
+      end)
+    else
+      []
+    end
+  end
+
+  defp list_filter_records do
+    if :recon_rec.is_active() do
+      :ets.tab2list(:recon_record_definitions)
+      # todo format list
+    else
+      []
+    end
+  end
+
+  # defp remove_record_filter(rec_name, field_count) do
+  #   :ets.delete(:recon_record_definitions, {rec_name, field_count})
+  # end
 end

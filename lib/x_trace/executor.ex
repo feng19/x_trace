@@ -36,4 +36,14 @@ defmodule XTrace.Executor do
     error, reason ->
       {error, reason, __STACKTRACE__}
   end
+
+  def fetch_struct_list(module_list) do
+    Enum.reduce(module_list, [], fn module, acc ->
+      if :erlang.function_exported(module, :__struct__, 0) do
+        [{module, module.__struct__()} | acc]
+      else
+        acc
+      end
+    end)
+  end
 end

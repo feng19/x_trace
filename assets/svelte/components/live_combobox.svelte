@@ -8,9 +8,11 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { cn } from "$lib/utils.js";
 
+  export let live;
   export let datalist = [];
-  export let selected;
+  export let event_name;
   export let value = "";
+  export let try_to_button = false;
   export let disabled = false;
   let open = false;
 
@@ -47,7 +49,20 @@
   <Popover.Content class="p-0">
     <Command.Root loop>
       <Command.Input bind:value={inputValue} placeholder="Search item..." />
-      <Command.Empty>No item found.</Command.Empty>
+      <Command.Empty>
+        No item found.
+        {#if try_to_button}
+          <Button
+            on:click={() => {
+              live.pushEvent(event_name, inputValue);
+              closeAndFocusTrigger(ids.trigger);
+              inputValue = "";
+            }}
+          >
+            Try to [{inputValue}]
+          </Button>
+        {/if}
+      </Command.Empty>
       <Command.Group>
         {#if datalist.length >= 9}
           <ScrollArea class="h-72">
@@ -56,7 +71,7 @@
                 value={item.value}
                 onSelect={(currentValue) => {
                   value = currentValue;
-                  selected = currentValue;
+                  live.pushEvent(event_name, currentValue);
                   closeAndFocusTrigger(ids.trigger);
                 }}
               >
@@ -76,7 +91,7 @@
               value={item.value}
               onSelect={(currentValue) => {
                 value = currentValue;
-                selected = currentValue;
+                live.pushEvent(event_name, currentValue);
                 closeAndFocusTrigger(ids.trigger);
               }}
             >
