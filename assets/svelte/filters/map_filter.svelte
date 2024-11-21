@@ -71,6 +71,7 @@
   }
 
   function addLimit() {
+    // filter duplicate
     let limits = new_filter.limits.filter(
       (l) => l.key !== new_filter_limit.key
     );
@@ -203,9 +204,9 @@
         </ItemWithX>
       {/each}
 
-      {#if new_filter.patterns.length === 0}
+      <div class="hidden only:block">
         <p class="text-sm text-gray-500 text-center">No patterns added</p>
-      {/if}
+      </div>
     </div>
   </div>
 
@@ -263,9 +264,9 @@
         </ItemWithX>
       {/each}
 
-      {#if new_filter.limits.length === 0}
-        <p class="w-full text-sm text-gray-500 text-center">No limits added</p>
-      {/if}
+      <div class="hidden only:block">
+        <p class="text-sm text-gray-500 text-center">No limits added</p>
+      </div>
     </div>
   </div>
 

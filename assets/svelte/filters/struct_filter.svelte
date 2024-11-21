@@ -58,10 +58,15 @@
   }
 
   function addField() {
-    new_filter = {
-      ...new_filter,
-      limits: [...new_filter.limits, { type: "atom", key: field_selected }],
-    };
+    let is_not_existing =
+      new_filter.limits.find((item) => item.key === field_selected) ===
+      undefined;
+    if (is_not_existing) {
+      new_filter = {
+        ...new_filter,
+        limits: [...new_filter.limits, { type: "atom", key: field_selected }],
+      };
+    }
   }
 
   function removeField(index) {
@@ -113,15 +118,15 @@
     </div>
   </div>
 
-  <div class="flex gap-2">
+  <div class="inline-flex flex-wrap gap-2">
     {#each new_filter.limits as limit, index (limit.key)}
       <ItemWithX onClick={() => {}} onRemove={() => removeField(index)}>
         :{limit.key}
       </ItemWithX>
     {/each}
-    {#if new_filter.limits.length === 0}
-      <p class="w-full text-sm text-gray-500 text-center">No fields added</p>
-    {/if}
+    <div class="hidden only:block">
+      <p class="text-sm text-gray-500 text-center">No fields added</p>
+    </div>
   </div>
 
   <Button

@@ -89,4 +89,7 @@
       </div>
     </div>
   {/each}
+  <div class="hidden only:block text-center text-sm text-gray-500">
+    No local settings found
+  </div>
 </div>
