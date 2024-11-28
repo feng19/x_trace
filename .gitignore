@@ -45,3 +45,4 @@ npm-debug.log
 
 /burrito_out/
 .hosts.erlang
+.server_info

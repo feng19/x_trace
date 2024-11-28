@@ -21,7 +21,6 @@ if config_env() == :prod do
   port = String.to_integer(System.get_env("PORT") || "4000")
 
   config :x_trace, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
-  config :phoenix, :browser_open, true
 
   config :x_trace, XTraceWeb.Endpoint,
     server: true,

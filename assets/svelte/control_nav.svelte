@@ -68,7 +68,11 @@
       event: {
         type: "function",
         name: () => {
-          settingsLocalStorage.download();
+          if (window.__TAURI__) {
+            settingsLocalStorage.tauri_download();
+          } else {
+            settingsLocalStorage.download();
+          }
         },
       },
       variant: "ghost",
