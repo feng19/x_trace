@@ -82,8 +82,8 @@
         in:fade
         out:blur
         class={cn(
-          "hover:bg-accent rounded-lg p-3 text-left text-sm transition-all",
-          $dashboardStore.selected === item.time && "bg-blue-300"
+          "rounded-lg p-3 text-left text-sm transition-all",
+          $dashboardStore.selected === item.time ? "bg-blue-300" : "hover:bg-accent"
         )}
         on:click={() => dashboardStore.setLog(item)}
       >
