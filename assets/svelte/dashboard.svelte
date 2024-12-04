@@ -86,12 +86,36 @@
       true
     );
 
-    let curr_settings = localStorage.getItem("x-trace-curr-settings");
-    if (curr_settings) {
-      live.pushEvent("apply-settings", { encoded: curr_settings, quiet: true });
+    // load current settings
+    if (window.__TAURI__) {
+      const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
+      readTextFile("curr_settings.json", {
+        baseDir: BaseDirectory.AppData,
+      }).then((content) => {
+        if (content.length > 0) {
+          live.pushEvent("apply-settings", { encoded: content, quiet: true });
+        }
+      });
+    } else {
+      let curr_settings = localStorage.getItem("x-trace-curr-settings");
+      if (curr_settings) {
+        live.pushEvent("apply-settings", {
+          encoded: curr_settings,
+          quiet: true,
+        });
+      }
     }
+
+    // save current settings
     live.handleEvent("save-curr-settings", ({ encoded }) => {
-      localStorage.setItem("x-trace-curr-settings", encoded);
+      if (window.__TAURI__) {
+        const { writeTextFile, BaseDirectory } = window.__TAURI__.fs;
+        writeTextFile("curr_settings.json", encoded, {
+          baseDir: BaseDirectory.AppData,
+        });
+      } else {
+        localStorage.setItem("x-trace-curr-settings", encoded);
+      }
     });
   });
 </script>

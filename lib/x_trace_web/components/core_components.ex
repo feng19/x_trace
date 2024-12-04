@@ -3,6 +3,4 @@ defmodule XTraceWeb.CoreComponents do
   Provides core UI components.
   """
   use Phoenix.Component
-#  alias Phoenix.LiveView.JS
-
 end

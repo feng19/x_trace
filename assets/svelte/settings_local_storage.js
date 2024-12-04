@@ -3,9 +3,35 @@ import { toast } from "svelte-sonner";
 
 function createStore() {
   const store = writable({ selected: null, items: [] });
-  let dump = () => {
-    localStorage.setItem("x-trace-settings", JSON.stringify(get(store).items));
-  };
+  function load() {
+    if (window.__TAURI__) {
+      const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
+      readTextFile("settings.json", { baseDir: BaseDirectory.AppData }).then(
+        (content) => {
+          if (content.length > 0) {
+            store.update((obj) => ({ ...obj, items: JSON.parse(content) }));
+          }
+        }
+      );
+    } else {
+      let all_settings = localStorage.getItem("x-trace-settings");
+      if (all_settings) {
+        store.update((obj) => ({ ...obj, items: JSON.parse(all_settings) }));
+      }
+    }
+  }
+
+  function dump() {
+    let content = JSON.stringify(get(store).items);
+    if (window.__TAURI__) {
+      const { writeTextFile, BaseDirectory } = window.__TAURI__.fs;
+      writeTextFile("settings.json", content, {
+        baseDir: BaseDirectory.AppData,
+      });
+    } else {
+      localStorage.setItem("x-trace-settings", content);
+    }
+  }
 
   return {
     subscribe: store.subscribe,
@@ -13,12 +39,7 @@ function createStore() {
       console.log("select id:", id);
       store.update((obj) => ({ ...obj, selected: id }));
     },
-    load: () => {
-      let all_settings = localStorage.getItem("x-trace-settings");
-      if (all_settings) {
-        store.update((obj) => ({ ...obj, items: JSON.parse(all_settings) }));
-      }
-    },
+    load: load,
     dump: dump,
     remove: (item) => {
       store.update((obj) => ({
