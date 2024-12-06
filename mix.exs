@@ -49,6 +49,7 @@ defmodule XTrace.MixProject do
       {:bandit, "~> 1.5"},
       {:live_svelte, "~> 0.13"},
       {:live_json, "~> 0.4"},
+      {:json_diff_ex, github: "olafura/json_diff_ex", override: true},
       {:extrace, "~> 0.5"},
       {:burrito, "~> 1.0"}
     ]
