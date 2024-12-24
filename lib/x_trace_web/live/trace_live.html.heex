@@ -1,12 +1,18 @@
-<.svelte name="dashboard" props={%{}}
-  live_json_props={%{
-    node_info: @ljnode_info,
-    trace_settings: @ljtrace_settings,
-    rate_limiting: @ljrate_limiting,
-    options_settings: @ljoptions_settings,
-    op_status: @ljop_status,
-    t_spec: @ljt_spec,
-    spec_datalist: @ljspec_datalist,
-    filters: @ljfilters,
-  }}
-  socket={@socket} ssr={false} />
+<.svelte
+  name="dashboard"
+  props={%{}}
+  live_json_props={
+    %{
+      node_info: @ljnode_info,
+      trace_settings: @ljtrace_settings,
+      rate_limiting: @ljrate_limiting,
+      options_settings: @ljoptions_settings,
+      op_status: @ljop_status,
+      t_spec: @ljt_spec,
+      spec_datalist: @ljspec_datalist,
+      filters: @ljfilters
+    }
+  }
+  socket={@socket}
+  ssr={false}
+/>
