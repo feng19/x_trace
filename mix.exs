@@ -5,7 +5,7 @@ defmodule XTrace.MixProject do
   def project do
     [
       app: @app,
-      version: "0.2.1",
+      version: "0.2.2",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -49,8 +49,9 @@ defmodule XTrace.MixProject do
       {:bandit, "~> 1.5"},
       {:live_svelte, "~> 0.13"},
       {:live_json, "~> 0.4"},
-      {:json_diff_ex, github: "olafura/json_diff_ex", override: true},
+      {:json_diff_ex, "~> 0.7", override: true},
       {:extrace, "~> 0.5"},
+      {:extrace_map_limiter, "~> 0.1"},
       {:burrito, "~> 1.0"}
     ]
   end

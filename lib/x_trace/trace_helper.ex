@@ -6,7 +6,7 @@ defmodule XTrace.TraceHelper do
   @deps_modules [
     XTrace.Executor,
     XTrace.Formatter,
-    XTrace.LimitFormatter,
+    Extrace.MapLimiter,
     :recon_trace,
     :recon_lib,
     :recon_rec,

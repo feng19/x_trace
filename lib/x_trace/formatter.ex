@@ -144,7 +144,7 @@ defmodule XTrace.Formatter do
     opts = Application.get_env(:extrace, :inspect_opts, pretty: true)
 
     if :recon_map.is_active() do
-      [{:inspect_fun, &XTrace.LimitFormatter.limit_inspect/2} | opts]
+      [{:inspect_fun, &Extrace.MapLimiter.limit_inspect/2} | opts]
     else
       opts
     end
