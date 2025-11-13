@@ -13,12 +13,12 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - uses: erlef/setup-beam@v1
         with:
           otp-version: '28.1.1'
           elixir-version: '1.19.2'
-      - uses: goto-bus-stop/setup-zig@v2
+      - uses: mlugg/setup-zig@v2
         with:
           version: 0.15.2
       - name: Build
@@ -28,16 +28,10 @@ jobs:
           MIX_ENV=prod mix release --force --overwrite
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         with:
           name: X-Trace ${{ github.ref_name }}
-          tag_name: ${{ github.ref }}
           body: 'Take a look at the assets to download and install this app.'
           draft: true
           prerelease: false
-          files: |
-            burrito_out/xtrace_linux
-            burrito_out/xtrace_linux_aarch64
-            burrito_out/xtrace_macos
-            burrito_out/xtrace_macos_aarch64
-            burrito_out/xtrace_windows.exe
+          artifacts: "burrito_out/xtrace_*"
