@@ -21,7 +21,7 @@ You must have the following installed and in your PATH:
 
 - Erlang -- erl
 - Elixir -- mix
-- Zig (0.11.0) -- zig
+- Zig (0.15.2) -- zig
 - XZ -- xz
 - 7z -- 7z (For Windows Targets)
 

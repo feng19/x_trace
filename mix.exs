@@ -5,15 +5,18 @@ defmodule XTrace.MixProject do
   def project do
     [
       app: @app,
-      version: "0.2.2",
+      version: "0.2.3",
       elixir: "~> 1.14",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      releases: releases(),
-      preferred_cli_env: [release: :prod]
+      releases: releases()
     ]
+  end
+
+  def cli do
+    [preferred_envs: [release: :prod]]
   end
 
   # Configuration for the OTP application.
@@ -35,7 +38,7 @@ defmodule XTrace.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7"},
+      {:phoenix, "~> 1.7.21"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
