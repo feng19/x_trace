@@ -58,7 +58,12 @@ defmodule XTrace.NodeListener do
   defp init_erlang_distributed do
     # Make Sure Host File
     with {:error, :enoent} <- :net_adm.host_file() do
-      File.write!("./.hosts.erlang", "'127.0.0.1'.\n")
+      host_file = Path.expand("~/.hosts.erlang")
+
+      if not File.exists?(host_file) do
+        File.write!(host_file, "'127.0.0.1'.\n")
+        Logger.info("Successfully created the host file: #{host_file}")
+      end
     end
 
     # ping world nodes

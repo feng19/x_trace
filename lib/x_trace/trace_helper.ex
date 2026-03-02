@@ -155,13 +155,9 @@ defmodule XTrace.TraceHelper do
   end
 
   def _app_module_list({:ok, list}) do
-    for module <- list do
-      case to_string(module) do
-        "Elixir." <> m -> m
-        m -> m
-      end
-    end
-    |> Kernel.--(@banned_mods)
+    list
+    |> Stream.map(&FormatHelper.format_module/1)
+    |> module_list_filter()
   end
 
   def _app_module_list(_), do: []
@@ -180,9 +176,15 @@ defmodule XTrace.TraceHelper do
     do: call(node, :code, :all_loaded, []) |> _module_list()
 
   defp _module_list(list) do
-    for {module, _file} <- list do
-      FormatHelper.format_module(module)
-    end
+    list
+    |> Stream.map(fn {module, _file} -> FormatHelper.format_module(module) end)
+    |> module_list_filter()
+  end
+
+  defp module_list_filter(module_list) do
+    module_list
+    |> Stream.reject(&String.starts_with?(&1, "Jason.Encoder"))
+    |> Enum.to_list()
     |> Kernel.--(@banned_mods)
   end
 

@@ -14,12 +14,27 @@
   export let value = "";
   export let try_to_button = false;
   export let disabled = false;
+  export let server_search = false;
+  export let search_event = "";
+  export let total_count = 0;
   let open = false;
 
   let inputValue = "";
+  let debounceTimer;
 
   $: selectedValue =
     datalist.find((f) => f.value === value)?.label ?? "Select a item...";
+
+  // Server-driven search: debounce input and push to server
+  function onInputChange(val) {
+    if (!server_search) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      live.pushEvent(search_event, val);
+    }, 300);
+  }
+
+  $: onInputChange(inputValue);
 
   // We want to refocus the trigger button when the user selects
   // an item from the list so users can continue navigating the
@@ -47,8 +62,13 @@
     </Button>
   </Popover.Trigger>
   <Popover.Content class="p-0">
-    <Command.Root loop>
+    <Command.Root loop shouldFilter={!server_search}>
       <Command.Input bind:value={inputValue} placeholder="Search item..." />
+      {#if total_count > datalist.length}
+        <div class="px-3 py-1.5 text-xs text-muted-foreground text-center border-b">
+          Showing {datalist.length} of {total_count} — type to search more
+        </div>
+      {/if}
       <Command.Empty>
         No item found.
         {#if try_to_button}

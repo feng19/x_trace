@@ -18,6 +18,7 @@
   export let enable;
   export let app_list;
   export let module_list;
+  export let module_total = 0;
   export let fun_list;
   export let args_list;
 
@@ -88,7 +89,10 @@
         event_name="module-changed"
         value={module.replace(/^Elixir\./, "")}
         datalist={m_list}
+        total_count={module_total}
         try_to_button
+        server_search={true}
+        search_event="search-modules"
       />
     </div>
   </div>

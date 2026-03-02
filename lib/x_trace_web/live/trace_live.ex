@@ -3,7 +3,7 @@ defmodule XTraceWeb.TraceLive do
   use XTraceWeb, :live_view
   require Logger
   import XTrace.FormatHelper
-  alias XTrace.{IoServer, NodeHelper, NodeListener, TraceHelper, Validator}
+  alias XTrace.{IoServer, ModuleSearcher, NodeHelper, NodeListener, TraceHelper, Validator}
 
   @default_fun_list []
   @default_args_list ["return_trace"]
@@ -132,10 +132,11 @@ defmodule XTraceWeb.TraceLive do
 
     socket =
       socket
+      |> assign(cached_module_list: module_list)
       |> LiveJson.push_patch("t_spec", t_spec)
       |> LiveJson.push_patch("spec_datalist", %{
         spec_datalist
-        | module_list: module_list,
+        | module_list: Enum.take(module_list, 50),
           struct_list: struct_list
       })
 
@@ -151,8 +152,28 @@ defmodule XTraceWeb.TraceLive do
 
     socket =
       socket
+      |> assign(cached_module_list: module_list)
       |> LiveJson.push_patch("t_spec", t_spec)
-      |> LiveJson.push_patch("spec_datalist", %{spec_datalist | module_list: module_list})
+      |> LiveJson.push_patch("spec_datalist", %{
+        spec_datalist
+        | module_list: Enum.take(module_list, 50)
+      })
+
+    {:noreply, socket}
+  end
+
+  def handle_event("search-modules", query, socket) do
+    module_list = socket.assigns.cached_module_list
+    query = if is_binary(query), do: query, else: ""
+    {filtered, total} = ModuleSearcher.search_with_total(module_list, query)
+    %{ljspec_datalist: spec_datalist} = socket.assigns
+
+    socket =
+      LiveJson.push_patch(socket, "spec_datalist", %{
+        spec_datalist
+        | module_list: filtered,
+          module_total: total
+      })
 
     {:noreply, socket}
   end
@@ -636,7 +657,7 @@ defmodule XTraceWeb.TraceLive do
     records = list_filter_records()
 
     socket
-    |> assign(t_specs: [], pids: [])
+    |> assign(t_specs: [], pids: [], cached_module_list: module_list)
     |> assign_fun.("node_info", node_info)
     |> assign_fun.("trace_settings", %{
       t_specs: [],
@@ -660,7 +681,8 @@ defmodule XTraceWeb.TraceLive do
     |> assign_fun.("t_spec", @default_t_spec)
     |> assign_fun.("spec_datalist", %{
       app_list: app_list,
-      module_list: module_list,
+      module_list: Enum.take(module_list, 50),
+      module_total: length(module_list),
       struct_list: struct_list,
       fun_list: @default_fun_list,
       args_list: @default_args_list
