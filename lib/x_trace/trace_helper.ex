@@ -47,7 +47,7 @@ defmodule XTrace.TraceHelper do
     call(node, XTrace.Executor, :calls, [
       t_specs,
       max,
-      [{:io_server, IoServer.pid()} | options],
+      [{:io_server, io_server} | options],
       io_server
     ])
     |> format_calls_return()
@@ -69,12 +69,7 @@ defmodule XTrace.TraceHelper do
   end
 
   defp ensure_remote_loaded_deps_modules(node) do
-    modules =
-      if NodeHelper.elixir_node?(node) do
-        List.delete(@deps_modules, :recon_rec)
-      else
-        @deps_modules
-      end
+    modules = @deps_modules
 
     for module <- modules do
       md5 = module.module_info(:md5)
