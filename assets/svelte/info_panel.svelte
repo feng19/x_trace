@@ -2,7 +2,7 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { SquareTerminal, Copy } from "lucide-svelte/icons";
+  import { SquareTerminal, Copy, Check } from "lucide-svelte/icons";
   import { cn } from "$lib/utils.js";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import InfoHover from "$lib/components/info_hover.svelte";
@@ -10,6 +10,8 @@
   export let node_info;
   export let trace_settings;
   let t_specs_height;
+  let copied = false;
+  let copyTimeout;
 
   const copy = () => {
     const app = new CopyClipBoard({
@@ -17,6 +19,9 @@
       props: { content: trace_settings.cli },
     });
     app.$destroy();
+    copied = true;
+    clearTimeout(copyTimeout);
+    copyTimeout = setTimeout(() => { copied = false; }, 2000);
   };
 </script>
 
@@ -94,8 +99,13 @@
       <span>Print Cli</span>
     </Button>
     <Button variant="link" class="space-x-2" on:click={copy}>
-      <Copy class="size-4" />
-      <span>Copy Cli</span>
+      {#if copied}
+        <Check class="size-4" />
+        <span>Copied!</span>
+      {:else}
+        <Copy class="size-4" />
+        <span>Copy Cli</span>
+      {/if}
     </Button>
   </div>
 </div>
