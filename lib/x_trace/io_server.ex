@@ -30,6 +30,11 @@ defmodule XTrace.IoServer do
     {:noreply, state}
   end
 
+  def handle_info({:xtrace_msg, msg}, state) do
+    Phoenix.PubSub.broadcast(XTrace.PubSub, @topic, {:trace_msg, msg})
+    {:noreply, state}
+  end
+
   defp put_chars(chars), do: :unicode.characters_to_binary(chars)
   defp put_chars(m, f, a), do: apply(m, f, a) |> to_string()
 end

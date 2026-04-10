@@ -33,6 +33,7 @@
     show: true,
     disabled: false,
   };
+
   let remove_item = {
     title: "Remove this Setting",
     icon: CircleX,

@@ -54,5 +54,13 @@
     <p>type: {$dashboardStore.log.type}</p>
     <p>pid: {$dashboardStore.log.pid}</p>
     <pre class="text-wrap">{$dashboardStore.log.content}</pre>
+    {#if $dashboardStore.log.details_loading}
+      <Separator class="my-4" />
+      <div class="mt-4 text-sm text-muted-foreground">Loading details...</div>
+    {:else}
+      <Separator class="my-4" />
+      <p class="font-bold text-sm mb-2">Details:</p>
+      <pre class="text-wrap text-sm bg-muted p-3 rounded-lg">{$dashboardStore.log.details}</pre>
+    {/if}
   </div>
 </div>

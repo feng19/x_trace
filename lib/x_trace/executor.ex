@@ -8,7 +8,12 @@ defmodule XTrace.Executor do
     spawn(fn ->
       :erlang.group_leader(io_server, self())
       :erlang.process_flag(:trap_exit, true)
-      result = _calls(t_specs, max, options)
+
+      result =
+        _calls(t_specs, max, [
+          {:formatter, &XTrace.Formatter.remote_format(io_server, &1)} | options
+        ])
+
       send(parent, {ref, result})
 
       receive do

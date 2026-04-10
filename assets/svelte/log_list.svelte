@@ -27,6 +27,7 @@
     let wrapper = document.getElementById("logs-container");
 
     live.handleEvent("add-log", (log) => {
+      console.log(log);
       items = [...items, log];
       dashboardStore.updateLogCount(1);
 
@@ -85,7 +86,17 @@
           "rounded-lg p-3 text-left text-sm transition-all",
           $dashboardStore.selected === item.time ? "bg-blue-300" : "hover:bg-accent"
         )}
-        on:click={() => dashboardStore.setLog(item)}
+        on:click={() => {
+          dashboardStore.setLog(item);
+          console.log(item);
+          if (item.trace_info) {
+            live.pushEvent("format-details", { type: item.type, trace_info: item.trace_info }, ({ details }) => {
+              dashboardStore.setLogDetails(details);
+            });
+          } else {
+            dashboardStore.setLogDetails(null);
+          }
+        }}
       >
         <div class="text-muted-foreground line-clamp-2 text-sm">
           {format_log(item)}

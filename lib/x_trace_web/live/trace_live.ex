@@ -24,6 +24,12 @@ defmodule XTraceWeb.TraceLive do
     {:reply, data, socket}
   end
 
+  def handle_event("format-details", %{"type" => type, "trace_info" => trace_info}, socket) do
+    type = String.to_existing_atom(type)
+    details = XTrace.Formatter.format_details(type, trace_info)
+    {:reply, %{details: details}, socket}
+  end
+
   def handle_event("switch-node", node, socket) do
     {reply, socket} =
       try do

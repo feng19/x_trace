@@ -9,6 +9,86 @@ defmodule XTrace.Formatter do
     :xtrace_ignore_me
   end
 
+  @spec remote_format(io_server :: pid, trace_msg :: tuple) :: iodata
+  def remote_format(io_server, trace_msg) do
+    msg = extract_info(trace_msg)
+    send(io_server, {:xtrace_msg, msg})
+    :xtrace_ignore_me
+  end
+
+  def format_details(type, trace_info) when is_binary(trace_info) do
+    trace_info = Base.decode64!(trace_info) |> :erlang.binary_to_term()
+
+    case {type, trace_info} do
+      {:receive, [msg]} ->
+        [msg: msg]
+
+      {:send, [msg, to]} ->
+        [msg: msg, to: to]
+
+      {:send_to_non_existing_process, [msg, to]} ->
+        [msg: msg, to: to]
+
+      {:call, [{m, f, args}]} ->
+        [module: m, function: f, args: args]
+
+      {:return_to, [{m, f, arity}]} ->
+        [module: m, function: f, arity: arity]
+
+      {:return_from, [{m, f, arity}, return]} ->
+        [module: m, function: f, arity: arity, return: return]
+
+      {:exception_from, [{m, f, arity}, {class, val}]} ->
+        [module: m, function: f, arity: arity, class: class, value: val]
+
+      {:spawn, [spawned, {m, f, args}]} ->
+        [spawned: spawned, module: m, function: f, args: args]
+
+      {:exit, [reason]} ->
+        [reason: reason]
+
+      {:link, [linked]} ->
+        [linked: linked]
+
+      {:unlink, [linked]} ->
+        [unlinked: linked]
+
+      {:getting_linked, [linker]} ->
+        [linker: linker]
+
+      {:getting_unlinked, [unlinker]} ->
+        [unlinker: unlinker]
+
+      {:register, [name]} ->
+        [name: name]
+
+      {:unregister, [name]} ->
+        [name: name]
+
+      {:in, [{m, f, arity}]} ->
+        [module: m, function: f, arity: arity]
+
+      {:in, [0]} ->
+        [info: :scheduled_in]
+
+      {:out, [{m, f, arity}]} ->
+        [module: m, function: f, arity: arity]
+
+      {:out, [0]} ->
+        [info: :scheduled_out]
+
+      {:gc_start, [info]} ->
+        [info: info]
+
+      {:gc_end, [info]} ->
+        [info: info]
+
+      {_type, info} ->
+        [raw: info]
+    end
+    |> inspect(pretty: true, width: 100, limit: :infinity, printable_limit: :infinity)
+  end
+
   ###############
   ### Private ###
   ###############
@@ -18,13 +98,29 @@ defmodule XTrace.Formatter do
       [:trace_ts, pid, type | info] ->
         {trace_info, [timestamp]} = :lists.split(:erlang.length(info) - 1, info)
         content = format_body(type, trace_info)
-        %{time: to_unixtime(timestamp), type: type, pid: format_pid(pid), content: content}
+
+        %{
+          time: to_unixtime(timestamp),
+          type: type,
+          trace_info: encode_trace_info(trace_info),
+          pid: format_pid(pid),
+          content: content
+        }
 
       [:trace, pid, type | trace_info] ->
         content = format_body(type, trace_info)
-        %{time: System.system_time(), type: type, pid: format_pid(pid), content: content}
+
+        %{
+          time: System.system_time(),
+          type: type,
+          trace_info: encode_trace_info(trace_info),
+          pid: format_pid(pid),
+          content: content
+        }
     end
   end
+
+  defp encode_trace_info(trace_info), do: trace_info |> :erlang.term_to_binary() |> Base.encode64()
 
   @compile {:inline, format_body: 2}
   defp format_body(:receive, [msg]) do

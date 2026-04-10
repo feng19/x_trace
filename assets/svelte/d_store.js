@@ -74,11 +74,17 @@ function createStore() {
           auto_scroll: false,
           right_panel_show: true,
           selected: log.time,
-          log: log,
+          log: { ...log, details: null, details_loading: true },
         }));
       } else {
         store.update((obj) => ({ ...obj, auto_scroll: true, selected: null }));
       }
+    },
+    setLogDetails: (details) => {
+      store.update((obj) => ({
+        ...obj,
+        log: obj.log ? { ...obj.log, details, details_loading: false } : obj.log,
+      }));
     },
   };
 }
