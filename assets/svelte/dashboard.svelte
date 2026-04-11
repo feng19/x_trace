@@ -30,6 +30,9 @@
   let navCollapsedSize = 4;
   let defaultLayout = [265, 655, 260];
   let right_panel;
+  let left_panel;
+  let leftPanelCollapsedByLog = false;
+  let savedRightPanelSize = null;
 
   function onUpdateStore(data) {
     console.log(data);
@@ -54,6 +57,29 @@
       right_panel && right_panel.expand();
     } else {
       right_panel && right_panel.collapse();
+    }
+  }
+
+  // Collapse left panel & expand right panel when a log is selected, restore when closed
+  $: {
+    if ($dashboardStore.selected) {
+      if (left_panel && !isCollapsed) {
+        leftPanelCollapsedByLog = true;
+        left_panel.collapse();
+      }
+      if (right_panel && savedRightPanelSize === null) {
+        savedRightPanelSize = right_panel.getSize();
+        right_panel.resize(40);
+      }
+    } else {
+      if (left_panel && leftPanelCollapsedByLog) {
+        leftPanelCollapsedByLog = false;
+        left_panel.expand();
+      }
+      if (right_panel && savedRightPanelSize !== null) {
+        right_panel.resize(savedRightPanelSize);
+        savedRightPanelSize = null;
+      }
     }
   }
 
@@ -136,6 +162,7 @@
     maxSize={20}
     {onCollapse}
     {onExpand}
+    bind:pane={left_panel}
   >
     <div
       class={cn(

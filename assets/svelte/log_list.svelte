@@ -98,7 +98,10 @@
           }
         }}
       >
-        <div class="text-muted-foreground line-clamp-2 text-sm">
+        <div class={cn(
+          "text-muted-foreground text-sm",
+          $dashboardStore.selected === item.time ? "" : "line-clamp-2"
+        )}>
           {format_log(item)}
         </div>
       </button>

@@ -3,12 +3,24 @@
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import { Button, buttonVariants } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
+  import * as Accordion from "$lib/components/ui/accordion/index.js";
   import { Separator } from "$lib/components/ui/select";
   import { Copy, Check, X } from "lucide-svelte/icons";
+  import ElixirDataViewer from "../vendor/elixir-data-viewer";
 
-  // export let live;
   let copied = false;
   let copyTimeout;
+  let accordionValue = ["details"];
+
+  function initViewer(node, content) {
+    const viewer = new ElixirDataViewer(node);
+    viewer.setContent(content || "");
+    return {
+      update(newContent) {
+        viewer.setContent(newContent || "");
+      },
+    };
+  }
 
   const copy = () => {
     const app = new CopyClipBoard({
@@ -59,18 +71,35 @@
     </div>
     <Separator />
   </div>
-  <div class="p-4">
-    <p>time: {$dashboardStore.log.time}</p>
-    <p>type: {$dashboardStore.log.type}</p>
-    <p>pid: {$dashboardStore.log.pid}</p>
-    <pre class="text-wrap">{$dashboardStore.log.content}</pre>
-    {#if $dashboardStore.log.details_loading}
-      <Separator class="my-4" />
-      <div class="text-sm text-muted-foreground">Loading details...</div>
-    {:else if $dashboardStore.log.details}
-      <Separator class="my-4" />
-      <p class="font-bold text-sm mb-2">Details:</p>
-      <pre class="text-wrap text-sm bg-muted p-3 rounded-lg">{$dashboardStore.log.details}</pre>
-    {/if}
+
+  <div class="px-4 pt-3 pb-1 text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+    <span class="font-semibold text-foreground">Time</span>
+    <span class="text-muted-foreground">{$dashboardStore.log.time}</span>
+    <span class="font-semibold text-foreground">Type</span>
+    <span class="text-muted-foreground">{$dashboardStore.log.type}</span>
+    <span class="font-semibold text-foreground">PID</span>
+    <span class="text-muted-foreground">{$dashboardStore.log.pid}</span>
   </div>
+
+  {#if $dashboardStore.log.details_loading || $dashboardStore.log.details}
+  <Separator />
+
+  <Accordion.Root multiple bind:value={accordionValue} class="px-4">
+    {#if $dashboardStore.log.details_loading}
+      <Accordion.Item value="details">
+        <Accordion.Trigger class="text-sm">Details</Accordion.Trigger>
+        <Accordion.Content>
+          <div class="text-sm text-muted-foreground">Loading details...</div>
+        </Accordion.Content>
+      </Accordion.Item>
+    {:else if $dashboardStore.log.details}
+      <Accordion.Item value="details">
+        <Accordion.Trigger class="text-sm">Details</Accordion.Trigger>
+        <Accordion.Content>
+          <div use:initViewer={$dashboardStore.log.details}></div>
+        </Accordion.Content>
+      </Accordion.Item>
+    {/if}
+  </Accordion.Root>
+  {/if}
 </div>
