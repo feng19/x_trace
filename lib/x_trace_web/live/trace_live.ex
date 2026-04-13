@@ -290,6 +290,27 @@ defmodule XTraceWeb.TraceLive do
     {:noreply, socket}
   end
 
+  def handle_event("import-tspecs", %{"raw" => raw}, socket) do
+    alias XTrace.SpecParser
+
+    case SpecParser.parse(raw) do
+      {:ok, new_specs} ->
+        %{t_specs: t_specs, ljtrace_settings: trace_settings} = socket.assigns
+        t_specs = Enum.uniq(new_specs ++ t_specs)
+
+        socket =
+          socket
+          |> assign(t_specs: t_specs)
+          |> update_cli(%{trace_settings | t_specs: format_t_specs(t_specs)})
+          |> trace_enable()
+
+        {:reply, %{code: 0, msg: "Imported #{length(new_specs)} spec(s)"}, socket}
+
+      {:error, reason} ->
+        {:reply, %{code: 1, msg: reason}, socket}
+    end
+  end
+
   def handle_event("del-tspec", %{"index" => index}, socket) do
     %{t_specs: t_specs, ljtrace_settings: trace_settings} = socket.assigns
     t_specs = List.delete_at(t_specs, index)
