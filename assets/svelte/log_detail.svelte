@@ -13,7 +13,7 @@
   let accordionValue = ["details"];
 
   function initViewer(node, content) {
-    const viewer = new ElixirDataViewer(node);
+    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true});
     viewer.setContent(content || "");
     return {
       update(newContent) {

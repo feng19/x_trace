@@ -25,7 +25,7 @@ jobs:
         run: |
           mix setup
           mix assets.deploy
-          MIX_ENV=prod mix release --force --overwrite
+          mix release --force --overwrite
       - name: Create Release
         id: create_release
         uses: ncipollo/release-action@v1
