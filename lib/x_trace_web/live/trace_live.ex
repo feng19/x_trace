@@ -303,7 +303,7 @@ defmodule XTraceWeb.TraceLive do
     {:noreply, socket}
   end
 
-  def handle_event("save-settings", _, socket) do
+  def handle_event("save-settings", %{"name" => name}, socket) do
     %{
       t_specs: t_specs,
       pids: pids,
@@ -323,6 +323,7 @@ defmodule XTraceWeb.TraceLive do
     settings =
       Map.new(settings, fn {k, v} -> {k, inspect_value(v)} end)
       |> Map.put(:encoded, encoded)
+      |> Map.put(:name, name)
 
     {:noreply, push_event(socket, "save-settings", settings)}
   end

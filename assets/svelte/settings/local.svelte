@@ -64,6 +64,9 @@
         on:click={() => settingsLocalStorage.select(item.id)}
       />
       <label for={"ls-c-" + item.id} class="flex-1 py-1 ml-2">
+        {#if item.name}
+          <div class="text-sm font-semibold text-blue-700 mb-1">{item.name}</div>
+        {/if}
         <span class="font-bold">TSpecs:</span>
         <pre class="text-wrap">{item.t_specs}</pre>
         <span class="font-bold">Rate-Limiting:</span>

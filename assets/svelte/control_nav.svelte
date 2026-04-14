@@ -44,7 +44,15 @@
     {
       title: "Save Settings",
       icon: Save,
-      event: { type: "phx-click", name: "save-settings" },
+      event: {
+        type: "function",
+        name: () => {
+          let name = prompt("Enter a name for this setting:");
+          if (name !== null && name.trim() !== "") {
+            live.pushEvent("save-settings", { name: name.trim() });
+          }
+        },
+      },
       variant: "ghost",
       show: op_status.save_settings !== "hidden",
       disabled: !op_status.save_settings,
