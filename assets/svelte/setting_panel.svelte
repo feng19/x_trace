@@ -2,6 +2,8 @@
   import { dashboardStore } from "./d_store.js";
   import * as Accordion from "$lib/components/ui/accordion/index.js";
   import { Separator } from "$lib/components/ui/select";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import { Trash2 } from "lucide-svelte/icons";
   import NodeSettings from "./settings/node.svelte";
   import SpecsSettings from "./settings/specs.svelte";
   import MaxRateSettings from "./settings/max_rate.svelte";
@@ -14,6 +16,10 @@
   export let trace_settings;
   export let rate_limiting;
   export let options_settings;
+
+  function clearAllTSpecs() {
+    live.pushEvent("clear-tspecs", {});
+  }
 </script>
 
 <Accordion.Root value={$dashboardStore.setting_tab} onValueChange={dashboardStore.setSettingTab}>
@@ -28,7 +34,19 @@
     <Accordion.Trigger class="px-2">Trace Settings</Accordion.Trigger>
     <Accordion.Content class="p-2">
       <div class="space-y-4">
-        <div class="text-lg font-bold">Matching Patterns</div>
+        <div class="flex items-center justify-between">
+          <div class="text-lg font-bold">Matching Patterns</div>
+          {#if trace_settings.t_specs.length > 1}
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 px-2 text-destructive hover:text-destructive"
+              on:click={clearAllTSpecs}
+            >
+              <Trash2 class="size-3.5 mr-1" /> Clear All
+            </Button>
+          {/if}
+        </div>
         <SpecsSettings {live} t_specs={trace_settings.t_specs}/>
 
         <Separator/>

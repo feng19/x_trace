@@ -160,6 +160,18 @@ defmodule XTraceWeb.TraceLive do
     {:noreply, socket}
   end
 
+  def handle_event("clear-tspecs", _params, socket) do
+    %{ljtrace_settings: trace_settings} = socket.assigns
+
+    socket =
+      socket
+      |> assign(t_specs: [])
+      |> update_cli(%{trace_settings | t_specs: []})
+      |> trace_enable()
+
+    {:noreply, socket}
+  end
+
   def handle_event("set-rate-limiting", %{"max" => max, "milliseconds" => milliseconds}, socket) do
     socket =
       case Validator.validate_rate_limiting(max, milliseconds) do
