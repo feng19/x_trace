@@ -11,11 +11,9 @@
 
   export let live;
   export let node_info;
-  export let t_spec;
   export let trace_settings;
   export let rate_limiting;
   export let options_settings;
-  export let spec_datalist;
 </script>
 
 <Accordion.Root value={$dashboardStore.setting_tab} onValueChange={dashboardStore.setSettingTab}>
@@ -31,7 +29,7 @@
     <Accordion.Content class="p-2">
       <div class="space-y-4">
         <div class="text-lg font-bold">Matching Patterns</div>
-        <SpecsSettings {live} t_specs={trace_settings.t_specs} {...t_spec} {...spec_datalist}/>
+        <SpecsSettings {live} t_specs={trace_settings.t_specs}/>
 
         <Separator/>
 

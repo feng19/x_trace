@@ -16,6 +16,7 @@ defmodule XTrace.SpecParser do
   """
 
   @type tspec :: {module(), atom(), atom() | non_neg_integer() | list()}
+  @banned_mods ~w(recon_trace io lists)
 
   @doc """
   Parses a raw string into a list of tspec tuples.
@@ -35,6 +36,32 @@ defmodule XTrace.SpecParser do
     end
   rescue
     e -> {:error, "Parse error: #{Exception.message(e)}"}
+  end
+
+  @doc """
+  Checks a list of parsed tspecs for banned modules.
+
+  Returns `:ok` or `{:error, reason}`.
+  """
+  @spec check_banned_mods([tspec()]) :: :ok | {:error, String.t()}
+  def check_banned_mods(specs) when is_list(specs) do
+    banned =
+      specs
+      |> Enum.map(fn {mod, _, _} -> mod end)
+      |> Enum.filter(&banned_mod?/1)
+      |> Enum.uniq()
+
+    case banned do
+      [] -> :ok
+      mods -> {:error, "Banned module(s): #{Enum.map_join(mods, ", ", &inspect/1)}"}
+    end
+  end
+
+  defp banned_mod?(mod) when is_atom(mod) do
+    mod_str = mod |> Atom.to_string() |> String.downcase()
+    # Strip "Elixir." prefix for Elixir modules
+    mod_str = String.replace_prefix(mod_str, "elixir.", "")
+    Enum.member?(@banned_mods, mod_str)
   end
 
   # --- AST Conversion ---

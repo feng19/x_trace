@@ -2,11 +2,6 @@ defmodule XTrace.Validator do
   @moduledoc false
   alias XTrace.TraceHelper
 
-  def validate_t_spec(%{module: module, fun: fun, args: args} = t_spec) do
-    enable = is_atom(module) and is_atom(fun) and (is_atom(args) or is_integer(args))
-    %{t_spec | enable: enable}
-  end
-
   def validate_rate_limiting(max, milliseconds) do
     case check_integer(max) do
       {:ok, max} when max < 1 ->
@@ -38,28 +33,6 @@ defmodule XTrace.Validator do
 
       {:error, error} ->
         {:error, "rate-limiting max #{error}"}
-    end
-  end
-
-  def validate_module(module, node_info) do
-    try_load? = node_info.code_mode == :interactive
-
-    case {node_info.is_self, try_load?} do
-      {true, true} ->
-        case TraceHelper.to_module(module) do
-          {:error, _} = error -> error
-          m -> Code.ensure_loaded(m)
-        end
-
-      {false, true} ->
-        TraceHelper.ensure_loaded(node_info.connected_node, module)
-
-      _ ->
-        :not_found
-    end
-    |> case do
-      {:module, m} when is_atom(m) -> {:ok, m}
-      _ -> {:error, "not_found"}
     end
   end
 

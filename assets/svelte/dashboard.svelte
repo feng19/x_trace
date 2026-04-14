@@ -7,14 +7,12 @@
   import InfoPanel from "./info_panel.svelte";
   import ControlNav from "./control_nav.svelte";
   import SearchBar from "./search_bar.svelte";
-  import FiltersPanel from "./filters/filters_panel.svelte";
   import LogList from "./log_list.svelte";
   import RightPanel from "./right_panel.svelte";
   import { cn } from "$lib/utils.js";
   import * as Resizable from "$lib/components/ui/resizable";
   import { Separator } from "$lib/components/ui/select";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { slide } from "svelte/transition";
 
   export let live;
   export let node_info;
@@ -22,9 +20,6 @@
   export let rate_limiting;
   export let options_settings;
   export let op_status;
-  export let t_spec;
-  export let spec_datalist;
-  export let filters;
 
   let isCollapsed = false;
   let navCollapsedSize = 4;
@@ -206,17 +201,11 @@
     >
       <div class="sticky top-0 z-49 bg-white">
         <div class="px-2 h-[52px] flex items-center gap-1">
-          <SearchBar {live} {filters} />
+          <SearchBar {live} />
         </div>
         <Separator />
       </div>
 
-      {#if $dashboardStore.filter_panel_show}
-        <div class="absolute w-full bg-white">
-          <FiltersPanel {live} {filters} />
-          <Separator />
-        </div>
-      {/if}
       <LogList {live} />
       <input
         type="file"
@@ -247,11 +236,9 @@
         {op_status}
         settings={{
           node_info,
-          t_spec,
           trace_settings,
           rate_limiting,
           options_settings,
-          spec_datalist,
         }}
       />
     </ScrollArea>

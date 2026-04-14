@@ -4,32 +4,12 @@
   import {
     Eraser,
     Download,
-    Filter,
     ArrowRightToLine,
     ArrowLeftFromLine,
   } from "lucide-svelte/icons";
   import { Input } from "$lib/components/ui/input";
 
   export let live;
-  export let filters;
-
-  $: left_items = [
-    {
-      title: "Filters",
-      icon: Filter,
-      event: {
-        type: "function",
-        name: () => {
-          dashboardStore.toggleFilterPanel();
-          dashboardStore.setRightPanel(null);
-        },
-      },
-      variant: "ghost",
-      show: true,
-      disabled: false,
-      btn_class: filters.count > 0 && "text-blue-600",
-    },
-  ];
 
   $: items = [
     {
@@ -72,8 +52,6 @@
     },
   ];
 </script>
-
-<NavBar {live} items={left_items} />
 
 <div class="flex-1">
   <Input id="searchInput" name="search" />

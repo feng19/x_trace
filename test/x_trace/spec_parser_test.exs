@@ -75,6 +75,44 @@ defmodule XTrace.SpecParserTest do
     end
   end
 
+  describe "check_banned_mods/1" do
+    test "returns :ok for allowed modules" do
+      assert :ok = SpecParser.check_banned_mods([{Enum, :map, :return_trace}])
+    end
+
+    test "returns :ok for empty list" do
+      assert :ok = SpecParser.check_banned_mods([])
+    end
+
+    test "rejects erlang :io module" do
+      assert {:error, msg} = SpecParser.check_banned_mods([{:io, :format, 2}])
+      assert msg =~ "Banned module"
+      assert msg =~ ":io"
+    end
+
+    test "rejects erlang :lists module" do
+      assert {:error, msg} = SpecParser.check_banned_mods([{:lists, :map, 2}])
+      assert msg =~ ":lists"
+    end
+
+    test "rejects :recon_trace module" do
+      assert {:error, msg} = SpecParser.check_banned_mods([{:recon_trace, :calls, 3}])
+      assert msg =~ ":recon_trace"
+    end
+
+    test "rejects Elixir IO module (case-insensitive)" do
+      assert {:error, msg} = SpecParser.check_banned_mods([{IO, :puts, 1}])
+      assert msg =~ "IO"
+    end
+
+    test "reports all banned modules in one error" do
+      specs = [{:io, :format, 2}, {:lists, :map, 2}, {Enum, :map, 2}]
+      assert {:error, msg} = SpecParser.check_banned_mods(specs)
+      assert msg =~ ":io"
+      assert msg =~ ":lists"
+    end
+  end
+
   describe "error handling" do
     test "returns error for invalid syntax" do
       assert {:error, _reason} = SpecParser.parse("not valid elixir {{{")
