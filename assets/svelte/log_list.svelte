@@ -1,12 +1,13 @@
 <script>
   import { onMount, tick } from "svelte";
   import { dashboardStore } from "./d_store.js";
+  import { settingsLocalStorage } from "./settings_local_storage.js";
   import { cn } from "$lib/utils.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { fade, blur } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, Github } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, Github, CirclePlay } from "lucide-svelte/icons";
 
   export let live;
   let items = [];
@@ -90,6 +91,11 @@
     ms = Math.trunc(log.time / 1000) % 1000;
     return time + "." + ms + " " + log.pid + " " + log.content;
   }
+
+  function applySettings(item) {
+    settingsLocalStorage.select(item.id);
+    live.pushEvent("apply-settings", item.encoded);
+  }
 </script>
 
 <div class="grid grid-cols-1">
@@ -129,7 +135,8 @@
   </div>
 
   {#if items.length == 0}
-    <div class="flex flex-col items-center" in:fade out:blur>
+    <div class="flex flex-col items-center px-4" in:fade out:blur>
+      <!-- Links -->
       <div
         class="mb-6 flex gap-4 items-center text-center text-sm text-gray-500"
       >
@@ -171,7 +178,11 @@
         </Button>
       </div>
 
-      <pre class="text-sm text-muted-foreground">
+      <!-- Two-column: Description left, Settings right -->
+      <div class="flex gap-8 justify-center">
+        <!-- Left: Description -->
+        <div>
+          <pre class="text-sm text-muted-foreground">
   Tracing Elixir and Erlang Code
 
   The Erlang Trace BIFs allow to trace any Elixir and Erlang code at
@@ -205,6 +216,28 @@
 
   !! Go to [Trace Settings] start & trace. !!
   </pre>
+        </div>
+
+        <!-- Right: Local Storage Settings -->
+        {#if $settingsLocalStorage.items.length > 0}
+          <div class="w-72 shrink-0">
+            <div class="text-sm font-semibold text-gray-500 mb-3">Saved Settings</div>
+            <div class="flex flex-col gap-3">
+              {#each $settingsLocalStorage.items as item (item.id)}
+                <button
+                  class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition-all hover:bg-blue-50 hover:border-blue-300 shadow-sm active:scale-[0.98]"
+                  on:click={() => applySettings(item)}
+                >
+                  <div class="flex items-center gap-3">
+                    <CirclePlay class="size-5 text-blue-600 shrink-0" />
+                    <span class="truncate font-medium text-sm">{item.name || item.t_specs}</span>
+                  </div>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
