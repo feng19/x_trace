@@ -2,6 +2,7 @@
   import { onMount, tick } from "svelte";
   import { dashboardStore } from "./d_store.js";
   import { cn } from "$lib/utils.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { fade, blur } from "svelte/transition";
@@ -10,16 +11,31 @@
   export let live;
   let items = [];
 
-  function get_badge_variant_from_label(label) {
-    if (["work"].includes(label.toLowerCase())) {
-      return "default";
-    }
+  const TYPE_BADGE_CLASSES = {
+    call:          "bg-blue-100 text-blue-800 border-blue-200",
+    return_to:     "bg-blue-50 text-blue-600 border-blue-200",
+    return_from:   "bg-sky-100 text-sky-800 border-sky-200",
+    exception_from:"bg-red-100 text-red-800 border-red-200",
+    send:          "bg-violet-100 text-violet-800 border-violet-200",
+    send_to_non_existing_process: "bg-violet-50 text-violet-600 border-violet-200",
+    receive:       "bg-indigo-100 text-indigo-800 border-indigo-200",
+    spawn:         "bg-green-100 text-green-800 border-green-200",
+    exit:          "bg-rose-100 text-rose-800 border-rose-200",
+    link:          "bg-amber-100 text-amber-800 border-amber-200",
+    unlink:        "bg-amber-50 text-amber-600 border-amber-200",
+    getting_linked:   "bg-amber-100 text-amber-700 border-amber-200",
+    getting_unlinked: "bg-amber-50 text-amber-600 border-amber-200",
+    register:      "bg-teal-100 text-teal-800 border-teal-200",
+    unregister:    "bg-teal-50 text-teal-600 border-teal-200",
+    in:            "bg-gray-100 text-gray-700 border-gray-200",
+    out:           "bg-gray-100 text-gray-600 border-gray-200",
+    gc_start:      "bg-orange-100 text-orange-800 border-orange-200",
+    gc_end:        "bg-orange-50 text-orange-600 border-orange-200",
+    cli:           "bg-slate-100 text-slate-700 border-slate-200",
+  };
 
-    if (["personal"].includes(label.toLowerCase())) {
-      return "outline";
-    }
-
-    return "secondary";
+  function get_badge_class(type) {
+    return TYPE_BADGE_CLASSES[type] || "bg-secondary text-secondary-foreground border-transparent";
   }
 
   onMount(() => {
@@ -98,11 +114,14 @@
           }
         }}
       >
-        <div class={cn(
-          "text-muted-foreground text-sm",
-          $dashboardStore.selected === item.time ? "" : "line-clamp-2"
-        )}>
-          {format_log(item)}
+        <div class="flex items-start gap-2">
+          <Badge variant="outline" class="shrink-0 {get_badge_class(item.type)}">{item.type}</Badge>
+          <div class={cn(
+            "text-muted-foreground text-sm",
+            $dashboardStore.selected === item.time ? "" : "line-clamp-4"
+          )}>
+            {format_log(item)}
+          </div>
         </div>
       </button>
     {/each}
