@@ -6,8 +6,10 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { fade, blur } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, Github, CirclePlay } from "lucide-svelte/icons";
+  import { fade, blur, slide } from "svelte/transition";
+  import { Gauge, BookOpen, Signature, Github, CirclePlay, Copy, Check } from "lucide-svelte/icons";
+  import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
+  import ElixirDataViewer from "../vendor/elixir-data-viewer";
 
   export let live;
   let items = [];
@@ -92,6 +94,47 @@
     return time + "." + ms + " " + log.pid + " " + log.content;
   }
 
+  let copied = false;
+  let copyTimeout;
+
+  function initViewer(node, content) {
+    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true});
+    viewer.setContent(content || "");
+    return {
+      update(newContent) {
+        viewer.setContent(newContent || "");
+      },
+    };
+  }
+
+  function copyContent(content) {
+    const app = new CopyClipBoard({
+      target: document.getElementById("clipboard"),
+      props: { content: content.trim() },
+    });
+    app.$destroy();
+    copied = true;
+    clearTimeout(copyTimeout);
+    copyTimeout = setTimeout(() => { copied = false; }, 2000);
+  }
+
+  function toggleLog(item) {
+    if ($dashboardStore.selected === item.time) {
+      dashboardStore.setLog(null);
+    } else {
+      dashboardStore.setLog(item);
+      if (item.trace_info && !item._details && !item._details_loading) {
+        item._details_loading = true;
+        items = items;
+        live.pushEvent("format-details", { type: item.type, trace_info: item.trace_info }, ({ details }) => {
+          item._details = details;
+          item._details_loading = false;
+          items = items;
+        });
+      }
+    }
+  }
+
   function applySettings(item) {
     settingsLocalStorage.select(item.id);
     live.pushEvent("apply-settings", item.encoded);
@@ -101,35 +144,51 @@
 <div class="grid grid-cols-1">
   <div id="logs-container" class="p-2 flex flex-col gap-1 mb-6">
     {#each items as item (item.time)}
-      <button
-        in:fade
-        out:blur
-        class={cn(
-          "rounded-lg p-3 text-left text-sm transition-all",
-          $dashboardStore.selected === item.time ? "bg-blue-300" : "hover:bg-accent"
-        )}
-        on:click={() => {
-          dashboardStore.setLog(item);
-          console.log(item);
-          if (item.trace_info) {
-            live.pushEvent("format-details", { type: item.type, trace_info: item.trace_info }, ({ details }) => {
-              dashboardStore.setLogDetails(details);
-            });
-          } else {
-            dashboardStore.setLogDetails(null);
-          }
-        }}
-      >
-        <div class="flex items-start gap-2">
-          <Badge variant="outline" class="shrink-0 {get_badge_class(item.type)}">{item.type}</Badge>
-          <div class={cn(
-            "text-muted-foreground text-sm",
-            $dashboardStore.selected === item.time ? "" : "line-clamp-4"
-          )}>
-            {format_log(item)}
+      <div in:fade out:blur>
+        <button
+          class={cn(
+            "w-full rounded-lg p-3 text-left text-sm transition-all",
+            $dashboardStore.selected === item.time ? "bg-blue-100 border border-blue-300" : "hover:bg-accent"
+          )}
+          on:click={() => toggleLog(item)}
+        >
+          <div class="flex items-start gap-2">
+            <Badge variant="outline" class="shrink-0 {get_badge_class(item.type)}">{item.type}</Badge>
+            <div class={cn(
+              "text-muted-foreground text-sm",
+              $dashboardStore.selected === item.time ? "" : "line-clamp-4"
+            )}>
+              {format_log(item)}
+            </div>
           </div>
-        </div>
-      </button>
+        </button>
+        {#if $dashboardStore.selected === item.time}
+          <div transition:slide={{ duration: 200 }} class="rounded-b-lg border border-t-0 border-blue-200 bg-blue-50/50 px-4 pt-2 pb-3 -mt-1 ml-2 mr-2">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                <span class="font-semibold text-foreground">Time</span>
+                <span class="text-muted-foreground">{item.time}</span>
+                <span class="font-semibold text-foreground">Type</span>
+                <span class="text-muted-foreground">{item.type}</span>
+                <span class="font-semibold text-foreground">PID</span>
+                <span class="text-muted-foreground">{item.pid}</span>
+              </div>
+              <Button variant="ghost" size="icon" class="h-7 w-7" on:click={() => copyContent(item.content)}>
+                {#if copied}
+                  <Check class="size-3.5 text-green-500" />
+                {:else}
+                  <Copy class="size-3.5" />
+                {/if}
+              </Button>
+            </div>
+            {#if item._details_loading}
+              <div class="text-sm text-muted-foreground">Loading details...</div>
+            {:else if item._details}
+              <div use:initViewer={item._details}></div>
+            {/if}
+          </div>
+        {/if}
+      </div>
     {/each}
     <div id="last-log-container"></div>
   </div>
