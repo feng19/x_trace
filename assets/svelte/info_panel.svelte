@@ -6,7 +6,9 @@
   import { cn } from "$lib/utils.js";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import InfoHover from "$lib/components/info_hover.svelte";
+  import NodeSwitcher from "./node_switcher.svelte";
 
+  export let live;
   export let node_info;
   export let trace_settings;
   let t_specs_height;
@@ -26,6 +28,10 @@
 </script>
 
 <div class="p-4 space-y-4">
+  {#if node_info.node_list.length > 1}
+    <NodeSwitcher {live} nodeList={node_info.node_list} selectedNode={node_info.connected_node} />
+  {/if}
+
   <div class="grid grid-cols-2 gap-2">
     <div class="font-bold">Self Node</div>
     <div>

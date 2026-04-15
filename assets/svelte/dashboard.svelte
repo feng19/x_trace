@@ -11,6 +11,9 @@
   import * as Resizable from "$lib/components/ui/resizable";
   import { Separator } from "$lib/components/ui/select";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
+  import { Button } from "$lib/components/ui/button/index.js";
+  import * as Tooltip from "$lib/components/ui/tooltip/index.js";
+  import { PanelLeftClose, PanelLeftOpen } from "lucide-svelte/icons";
 
   export let live;
   export let node_info;
@@ -23,8 +26,14 @@
   let navCollapsedSize = 4;
   let defaultLayout = [35, 65];
   let left_panel;
+  let leftPanelHidden = false;
 
   $: isTracing = op_status?.stop_trace === true;
+  $: showLeftPanel = !isTracing && !leftPanelHidden;
+
+  function toggleLeftPanel() {
+    leftPanelHidden = !leftPanelHidden;
+  }
 
   function onUpdateStore(data) {
     console.log(data);
@@ -108,7 +117,7 @@
   class="h-full flex-1 items-stretch"
 >
   <!-- left -->
-  {#if !isTracing}
+  {#if showLeftPanel}
     <Resizable.Pane
       defaultSize={defaultLayout[0]}
       collapsedSize={navCollapsedSize}
@@ -130,7 +139,7 @@
         </div>
 
         {#if !isCollapsed}
-          <InfoPanel {node_info} {trace_settings} />
+          <InfoPanel {live} {node_info} {trace_settings} />
           <Separator />
           <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} />
         {/if}
@@ -141,13 +150,36 @@
   {/if}
 
   <!-- center -->
-  <Resizable.Pane defaultSize={isTracing ? 100 : defaultLayout[1]} minSize={30}>
+  <Resizable.Pane defaultSize={showLeftPanel ? defaultLayout[1] : 100} minSize={30}>
     <ScrollArea
       id="logs-container-s"
       class="h-screen overflow-y-auto overscroll-y-auto grid grid-cols-1"
     >
       <div class="sticky top-0 z-49 bg-white">
         <div class="px-2 h-[52px] flex items-center gap-1">
+          {#if !isTracing}
+            <Tooltip.Root openDelay={0}>
+              <Tooltip.Trigger asChild let:builder>
+                <Button
+                  on:click={toggleLeftPanel}
+                  builders={[builder]}
+                  variant="ghost"
+                  size="icon"
+                  class="size-9 shrink-0"
+                >
+                  {#if leftPanelHidden}
+                    <PanelLeftOpen class="size-4" aria-hidden="true" />
+                  {:else}
+                    <PanelLeftClose class="size-4" aria-hidden="true" />
+                  {/if}
+                  <span class="sr-only">{leftPanelHidden ? 'Show' : 'Hide'} Left Panel</span>
+                </Button>
+              </Tooltip.Trigger>
+              <Tooltip.Content side="bottom" class="flex items-center gap-4">
+                {leftPanelHidden ? 'Show' : 'Hide'} Left Panel
+              </Tooltip.Content>
+            </Tooltip.Root>
+          {/if}
           <SearchBar {live} {isTracing} />
         </div>
         <Separator />

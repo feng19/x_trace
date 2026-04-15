@@ -4,7 +4,6 @@
   import { Separator } from "$lib/components/ui/select";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Trash2 } from "lucide-svelte/icons";
-  import NodeSwitcher from "./node_switcher.svelte";
   import NodeSettings from "./settings/node.svelte";
   import SpecsSettings from "./settings/specs.svelte";
   import MaxRateSettings from "./settings/max_rate.svelte";
@@ -27,12 +26,6 @@
   <Accordion.Item value="node-settings">
     <Accordion.Trigger class="px-2">Node Settings</Accordion.Trigger>
     <Accordion.Content class="p-2 space-y-4">
-      {#if node_info.node_list.length > 1}
-        <div class="px-2">
-          <NodeSwitcher {live} nodeList={node_info.node_list} selectedNode={node_info.connected_node} />
-        </div>
-        <Separator />
-      {/if}
       <NodeSettings {node_info}/>
     </Accordion.Content>
   </Accordion.Item>
