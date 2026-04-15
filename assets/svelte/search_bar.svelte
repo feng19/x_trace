@@ -1,6 +1,7 @@
 <script>
   import { dashboardStore } from "./d_store.js";
   import NavBar from "$lib/components/nav_bar.svelte";
+  import FilterPanel from "./filter_panel.svelte";
   import {
     Eraser,
     Download,
@@ -66,6 +67,8 @@
 <div class="flex-1">
   <Input id="searchInput" name="search" />
 </div>
+
+<FilterPanel />
 
 <NavBar {live} {items} />
 

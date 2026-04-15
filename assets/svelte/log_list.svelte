@@ -1,6 +1,7 @@
 <script>
   import { onMount, tick } from "svelte";
   import { dashboardStore } from "./d_store.js";
+  import { filterStore } from "./filter_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import { cn } from "$lib/utils.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
@@ -15,7 +16,35 @@
 
   export let live;
   export let node_info = {};
-  let items = [];
+
+  const LOGS_STORAGE_KEY = "x-trace-logs";
+  const MAX_STORED_LOGS = 5000;
+
+  function loadLogs() {
+    try {
+      const raw = localStorage.getItem(LOGS_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return [];
+  }
+
+  let _saveTimer;
+  function saveLogs(logs) {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      try {
+        // Strip transient fields and cap size
+        const toStore = logs.slice(-MAX_STORED_LOGS).map(({ _details, _details_loading, ...rest }) => rest);
+        localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(toStore));
+      } catch (_) {}
+    }, 500);
+  }
+
+  let items = loadLogs();
+  // Restore log count on load
+  if (items.length > 0) {
+    dashboardStore.setLogCount(items.length);
+  }
 
   const TYPE_BADGE_CLASSES = {
     call:          "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
@@ -52,6 +81,7 @@
       console.log(log);
       items = [...items, log];
       dashboardStore.updateLogCount(1);
+      saveLogs(items);
 
       if ($dashboardStore.auto_scroll) {
         tick().then(() => {
@@ -72,11 +102,13 @@
       };
       items = [...items, log];
       dashboardStore.updateLogCount(1);
+      saveLogs(items);
     });
 
     window.addEventListener("x:clear-logs", () => {
       items = [];
       dashboardStore.setLogCount(0);
+      saveLogs(items);
     });
 
     window.addEventListener("x:download-logs", (e) => {
@@ -119,6 +151,7 @@
       const newItems = validItems.filter((i) => !existingTimes.has(i.time));
       items = [...items, ...newItems].sort((a, b) => a.time - b.time);
       dashboardStore.setLogCount(items.length);
+      saveLogs(items);
     });
   });
 
@@ -131,12 +164,23 @@
   let copied = false;
   let copyTimeout;
 
+  let viewerIdCounter = 0;
+
   function initViewer(node, content) {
-    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true});
+    let currentContent = content;
+    const id = `log-list-${++viewerIdCounter}`;
+    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true, toolbar: { filter: false }});
     viewer.setContent(content || "");
+    filterStore.registerViewer(id, viewer);
     return {
       update(newContent) {
+        if (newContent === currentContent) return;
+        currentContent = newContent;
         viewer.setContent(newContent || "");
+        filterStore.refreshViewer(id, viewer);
+      },
+      destroy() {
+        filterStore.unregisterViewer(id);
       },
     };
   }
