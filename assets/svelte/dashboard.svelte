@@ -62,7 +62,7 @@
       settingsLocalStorage.append(item);
     });
 
-    // after user select file
+    // after user select settings file
     document.getElementById("upload-setting-input").addEventListener(
       "change",
       (event) => {
@@ -71,6 +71,30 @@
           console.log("import settings files:", input.files);
           dashboardStore.setSettingTab("local-settings");
           settingsLocalStorage.import_file(input.files[0]);
+        }
+        input.value = "";
+      },
+      true
+    );
+
+    // after user select log file for import
+    document.getElementById("upload-log-input").addEventListener(
+      "change",
+      (event) => {
+        let input = event.target;
+        if (input.files.length) {
+          let reader = new FileReader();
+          reader.onload = function () {
+            try {
+              let importedItems = JSON.parse(this.result);
+              window.dispatchEvent(
+                new CustomEvent("x:import-logs", { detail: { items: importedItems } })
+              );
+            } catch (e) {
+              console.error("Failed to parse imported log file:", e);
+            }
+          };
+          reader.readAsText(input.files[0]);
         }
         input.value = "";
       },
@@ -210,12 +234,19 @@
         <Separator />
       </div>
 
-      <LogList {live} />
+      <LogList {live} {node_info} />
       <input
         type="file"
         id="upload-setting-input"
         class="hidden"
         name="upload-setting"
+        accept=".json"
+      />
+      <input
+        type="file"
+        id="upload-log-input"
+        class="hidden"
+        name="upload-log"
         accept=".json"
       />
       <div id="clipboard"></div>

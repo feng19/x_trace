@@ -6,12 +6,15 @@
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
+  import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, Github, CirclePlay, Copy, Check } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, Github, CirclePlay, Copy, Check, FileUp, Play } from "lucide-svelte/icons";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
+  import NodeSwitcher from "./node_switcher.svelte";
 
   export let live;
+  export let node_info = {};
   let items = [];
 
   const TYPE_BADGE_CLASSES = {
@@ -76,15 +79,46 @@
       dashboardStore.setLogCount(0);
     });
 
-    window.addEventListener("x:download-logs", () => {
-      console.log("create setting file...");
+    window.addEventListener("x:download-logs", (e) => {
+      const format = e.detail?.format || "text";
       const link = document.createElement("a");
-      const content = items.map((log) => log.content).join("\n");
-      const file = new Blob([content], { type: "text/plain" });
-      link.href = URL.createObjectURL(file);
-      link.download = "x_trace.log";
+
+      if (format === "json") {
+        const exportItems = items.map(({ _details, _details_loading, ...rest }) => rest);
+        const content = JSON.stringify(exportItems, null, 2);
+        const file = new Blob([content], { type: "application/json" });
+        link.href = URL.createObjectURL(file);
+        link.download = "x_trace.json";
+      } else {
+        const content = items.map((log) => log.content).join("\n");
+        const file = new Blob([content], { type: "text/plain" });
+        link.href = URL.createObjectURL(file);
+        link.download = "x_trace.log";
+      }
+
       link.click();
       URL.revokeObjectURL(link.href);
+    });
+
+    window.addEventListener("x:import-logs", (e) => {
+      const importedItems = e.detail?.items;
+      if (!Array.isArray(importedItems)) return;
+
+      const validItems = importedItems.filter(
+        (item) =>
+          item &&
+          typeof item.time === "number" &&
+          typeof item.type === "string" &&
+          typeof item.content === "string"
+      );
+
+      if (validItems.length === 0) return;
+
+      // Deduplicate by time, then sort chronologically
+      const existingTimes = new Set(items.map((i) => i.time));
+      const newItems = validItems.filter((i) => !existingTimes.has(i.time));
+      items = [...items, ...newItems].sort((a, b) => a.time - b.time);
+      dashboardStore.setLogCount(items.length);
     });
   });
 
@@ -277,25 +311,61 @@
   </pre>
         </div>
 
-        <!-- Right: Local Storage Settings -->
-        {#if $settingsLocalStorage.items.length > 0}
-          <div class="w-72 shrink-0">
-            <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
-            <div class="flex flex-col gap-3">
-              {#each $settingsLocalStorage.items as item (item.id)}
-                <button
-                  class="rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700 shadow-sm active:scale-[0.98]"
-                  on:click={() => applySettings(item)}
-                >
-                  <div class="flex items-center gap-3">
-                    <CirclePlay class="size-5 text-blue-600 shrink-0" />
-                    <span class="truncate font-medium text-sm">{item.name || item.t_specs}</span>
-                  </div>
-                </button>
-              {/each}
+        <!-- Right: Actions & Local Storage Settings -->
+        <div class="w-72 shrink-0 flex flex-col gap-6">
+          <!-- Node Switcher -->
+          {#if node_info?.node_list?.length > 1}
+            <div>
+              <div class="text-sm font-semibold text-muted-foreground mb-3">Switch Node</div>
+              <NodeSwitcher {live} nodeList={node_info.node_list} selectedNode={node_info.connected_node} />
             </div>
+            <Separator class="my-0" />
+          {/if}
+
+          <!-- Import JSON Logs -->
+          <div>
+            <Button
+              variant="outline"
+              class="w-full justify-center gap-2"
+              on:click={() => document.getElementById("upload-log-input").click()}
+            >
+              <FileUp class="size-4" />
+              Import JSON Logs
+            </Button>
           </div>
-        {/if}
+
+          <!-- Saved Settings -->
+          {#if $settingsLocalStorage.items.length > 0}
+            <div>
+              <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
+              <div class="flex flex-col gap-3">
+                {#each $settingsLocalStorage.items as item (item.id)}
+                  <button
+                    class="rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700 shadow-sm active:scale-[0.98]"
+                    on:click={() => applySettings(item)}
+                  >
+                    <div class="flex items-center gap-3">
+                      <CirclePlay class="size-5 text-blue-600 shrink-0" />
+                      <span class="truncate font-medium text-sm">{item.name || item.t_specs}</span>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            </div>
+
+            <!-- Start Trace -->
+            <div>
+              <Button
+                variant="default"
+                class="w-full justify-center gap-2"
+                on:click={() => live.pushEvent("start-trace", {})}
+              >
+                <Play class="size-4" />
+                Start Trace
+              </Button>
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}
