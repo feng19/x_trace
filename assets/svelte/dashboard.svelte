@@ -3,13 +3,11 @@
   import { dashboardStore } from "./d_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import Flash from "./flash.svelte";
-  import NodeSwitcher from "./node_switcher.svelte";
   import InfoPanel from "./info_panel.svelte";
   import ControlNav from "./control_nav.svelte";
   import SearchBar from "./search_bar.svelte";
   import LogList from "./log_list.svelte";
   import RightPanel from "./right_panel.svelte";
-  import { cn } from "$lib/utils.js";
   import * as Resizable from "$lib/components/ui/resizable";
   import { Separator } from "$lib/components/ui/select";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
@@ -159,18 +157,10 @@
     {onExpand}
     bind:pane={left_panel}
   >
-    <div
-      class={cn(
-        "flex h-[52px] items-center justify-center",
-        isCollapsed ? "h-[52px]" : "px-2"
-      )}
-    >
-      <NodeSwitcher
-        {isCollapsed}
-        {live}
-        nodeList={node_info.node_list}
-        selectedNode={node_info.connected_node}
-      />
+    <div class="flex h-[52px] items-center justify-center px-2">
+      <div class="flex items-center gap-1">
+        <ControlNav {live} isCollapsed {op_status} side="bottom" />
+      </div>
     </div>
     <Separator />
 
@@ -178,17 +168,6 @@
       <InfoPanel {node_info} {trace_settings} />
       <Separator />
     {/if}
-
-    <div
-      data-collapsed={isCollapsed}
-      class="group flex flex-col gap-4 py-2 data-[collapsed=true]:py-2"
-    >
-      <div
-        class="grid gap-1 px-2 group-[[data-collapsed=true]]:justify-center group-[[data-collapsed=true]]:px-2"
-      >
-        <ControlNav {live} {isCollapsed} {op_status} side="right" />
-      </div>
-    </div>
   </Resizable.Pane>
 
   <Resizable.Handle withHandle />
