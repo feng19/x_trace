@@ -167,11 +167,11 @@
             <div class="flex items-center justify-between mb-2">
               <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                 <span class="font-semibold text-foreground">Time</span>
-                <span class="text-muted-foreground">{item.time}</span>
-                <span class="font-semibold text-foreground">Type</span>
-                <span class="text-muted-foreground">{item.type}</span>
-                <span class="font-semibold text-foreground">PID</span>
-                <span class="text-muted-foreground">{item.pid}</span>
+                <span class="text-muted-foreground">{new Date(item.time / 1000000).toLocaleString()}.{Math.trunc(item.time / 1000) % 1000}</span>
+                {#if item.pid}
+                  <span class="font-semibold text-foreground">PID</span>
+                  <span class="text-muted-foreground">{item.pid}</span>
+                {/if}
               </div>
               <Button variant="ghost" size="icon" class="h-7 w-7" on:click={() => copyContent(item.content)}>
                 {#if copied}
