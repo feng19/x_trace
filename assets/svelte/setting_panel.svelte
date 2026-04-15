@@ -24,15 +24,15 @@
 
 <Accordion.Root value={$dashboardStore.setting_tab} onValueChange={dashboardStore.setSettingTab}>
   <Accordion.Item value="node-settings">
-    <Accordion.Trigger class="px-2">Node Settings</Accordion.Trigger>
-    <Accordion.Content class="p-2 space-y-4">
+    <Accordion.Trigger class="px-4">Node Settings</Accordion.Trigger>
+    <Accordion.Content class="p-4 space-y-4">
       <NodeSettings {node_info}/>
     </Accordion.Content>
   </Accordion.Item>
 
   <Accordion.Item value="trace-settings">
-    <Accordion.Trigger class="px-2">Trace Settings</Accordion.Trigger>
-    <Accordion.Content class="p-2">
+    <Accordion.Trigger class="px-4">Trace Settings</Accordion.Trigger>
+    <Accordion.Content class="p-4">
       <div class="space-y-4">
         <div class="flex items-center justify-between">
           <div class="text-lg font-bold">Matching Patterns</div>
@@ -71,8 +71,8 @@
   </Accordion.Item>
 
   <Accordion.Item value="local-settings">
-    <Accordion.Trigger class="px-2">Local Storage</Accordion.Trigger>
-    <Accordion.Content>
+    <Accordion.Trigger class="px-4">Local Storage</Accordion.Trigger>
+    <Accordion.Content class="p-4">
       <LocalSettings {live}/>
     </Accordion.Content>
   </Accordion.Item>

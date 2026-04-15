@@ -1,6 +1,5 @@
 <script>
   import { dashboardStore } from "./d_store.js";
-  import NavBar from "$lib/components/nav_bar.svelte";
   import FilterPanel from "./filter_panel.svelte";
   import {
     Eraser,
@@ -10,6 +9,8 @@
     FileJson,
     SquareX,
     ChevronDown,
+    ChevronsDownUp,
+    ChevronsUpDown,
   } from "lucide-svelte/icons";
   import { Input } from "$lib/components/ui/input";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -20,19 +21,16 @@
   export let isTracing = false;
 
   let downloadOpen = false;
+  let clearConfirmOpen = false;
 
   $: hasLogs = $dashboardStore.log_count > 0;
+  $: expandAll = $dashboardStore.expand_all;
+  $: hasAnyExpanded = $dashboardStore.expanded_count > 0;
 
-  $: items = [
-    {
-      title: "Clear All",
-      icon: Eraser,
-      event: { type: "window", name: "clear-logs" },
-      variant: "ghost",
-      show: hasLogs,
-      disabled: !hasLogs,
-    },
-  ];
+  function doClearLogs() {
+    clearConfirmOpen = false;
+    window.dispatchEvent(new CustomEvent("x:clear-logs"));
+  }
 
   function downloadLogs(format) {
     downloadOpen = false;
@@ -70,7 +68,79 @@
 
 <FilterPanel />
 
-<NavBar {live} {items} />
+{#if hasLogs && !expandAll}
+  <Tooltip.Root openDelay={0}>
+    <Tooltip.Trigger asChild let:builder>
+      <Button
+        on:click={() => window.dispatchEvent(new CustomEvent("x:expand-all-logs"))}
+        builders={[builder]}
+        variant="ghost"
+        size="icon"
+        class="size-9 shrink-0"
+      >
+        <ChevronsUpDown class="size-4" aria-hidden="true" />
+        <span class="sr-only">Expand All</span>
+      </Button>
+    </Tooltip.Trigger>
+    <Tooltip.Content side="bottom" class="flex items-center gap-4">
+      Expand All
+    </Tooltip.Content>
+  </Tooltip.Root>
+{/if}
+
+{#if hasAnyExpanded}
+  <Tooltip.Root openDelay={0}>
+    <Tooltip.Trigger asChild let:builder>
+      <Button
+        on:click={() => window.dispatchEvent(new CustomEvent("x:collapse-all-logs"))}
+        builders={[builder]}
+        variant="ghost"
+        size="icon"
+        class="size-9 shrink-0"
+      >
+        <ChevronsDownUp class="size-4" aria-hidden="true" />
+        <span class="sr-only">Collapse All</span>
+      </Button>
+    </Tooltip.Trigger>
+    <Tooltip.Content side="bottom" class="flex items-center gap-4">
+      Collapse All
+    </Tooltip.Content>
+  </Tooltip.Root>
+{/if}
+
+{#if hasLogs}
+  <Popover.Root bind:open={clearConfirmOpen}>
+    <Popover.Trigger asChild let:builder>
+      <Tooltip.Root openDelay={0}>
+        <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+          <Button
+            builders={[builder, tooltipBuilder]}
+            variant="ghost"
+            size="icon"
+            class="size-9 shrink-0"
+          >
+            <Eraser class="size-4" aria-hidden="true" />
+            <span class="sr-only">Clear All</span>
+          </Button>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom" class="flex items-center gap-4">
+          Clear All
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </Popover.Trigger>
+    <Popover.Content class="w-56 p-3" align="end">
+      <p class="text-sm text-muted-foreground mb-3">Are you sure you want to clear all logs?</p>
+      <div class="flex justify-end gap-2">
+        <Button variant="outline" size="sm" on:click={() => (clearConfirmOpen = false)}>
+          Cancel
+        </Button>
+        <Button variant="destructive" size="sm" on:click={doClearLogs}>
+          Clear
+        </Button>
+      </div>
+    </Popover.Content>
+  </Popover.Root>
+{/if}
 
 {#if hasLogs}
   <Popover.Root bind:open={downloadOpen}>

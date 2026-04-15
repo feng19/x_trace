@@ -51,6 +51,7 @@ function createStore() {
     append: (item) => {
       let { selected, items } = get(store);
       items = items.filter((v) => item.encoded !== v.encoded);
+      item.saved_at = new Date().toISOString();
       store.update((obj) => ({
         ...obj,
         selected: item.id,
@@ -64,7 +65,14 @@ function createStore() {
       const content = JSON.stringify(get(store).items);
       const file = new Blob([content], { type: "application/json" });
       link.href = URL.createObjectURL(file);
-      link.download = "x_trace_settings.json";
+      const now = new Date();
+      const ts = now.getFullYear().toString() +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        String(now.getDate()).padStart(2, "0") + "_" +
+        String(now.getHours()).padStart(2, "0") +
+        String(now.getMinutes()).padStart(2, "0") +
+        String(now.getSeconds()).padStart(2, "0");
+      link.download = `xtrace_settings_${ts}.json`;
       link.click();
       URL.revokeObjectURL(link.href);
     },

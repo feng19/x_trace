@@ -67,6 +67,11 @@
         {#if item.name}
           <div class="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-1">{item.name}</div>
         {/if}
+        {#if item.saved_at}
+          <div class="text-xs text-muted-foreground mb-1">
+            Saved: {new Date(item.saved_at).toLocaleString()}
+          </div>
+        {/if}
         <span class="font-bold">TSpecs:</span>
         <pre class="text-wrap">{item.t_specs}</pre>
         <span class="font-bold">Rate-Limiting:</span>

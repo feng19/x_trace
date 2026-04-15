@@ -8,6 +8,8 @@ function createStore() {
     log_count: 0,
     auto_scroll: true,
     setting_tab: "trace-settings",
+    expand_all: false,
+    expanded_count: 0,
   });
 
   return {
@@ -35,6 +37,25 @@ function createStore() {
       } else {
         store.update((obj) => ({ ...obj, auto_scroll: true, selected: null }));
       }
+    },
+    setExpandAll: (value) => {
+      if (value) {
+        store.update((s) => ({ ...s, expand_all: true }));
+      } else {
+        store.update((s) => ({
+          ...s,
+          expand_all: false,
+          expanded_count: 0,
+          selected: null,
+          auto_scroll: true,
+        }));
+      }
+    },
+    setExpandedCount: (count) => {
+      store.update((s) => ({ ...s, expanded_count: count }));
+    },
+    updateExpandedCount: (diff) => {
+      store.update((s) => ({ ...s, expanded_count: s.expanded_count + diff }));
     },
   };
 }

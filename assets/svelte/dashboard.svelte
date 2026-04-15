@@ -156,7 +156,7 @@
       bind:pane={left_panel}
     >
       <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto">
-        <div class="sticky top-0 z-49 bg-background">
+        <div class="sticky top-0 z-50 bg-background">
           <div class="flex h-[52px] items-center justify-center px-2">
             <div class="flex items-center gap-1">
               <ControlNav {live} isCollapsed {op_status} side="bottom" />
@@ -182,7 +182,7 @@
       id="logs-container-s"
       class="h-screen overflow-y-auto overscroll-y-auto grid grid-cols-1"
     >
-      <div class="sticky top-0 z-49 bg-background">
+      <div class="sticky top-0 z-50 bg-background">
         <div class="px-2 h-[52px] flex items-center gap-1">
           {#if !isTracing}
             <Tooltip.Root openDelay={0}>

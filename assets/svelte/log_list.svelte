@@ -34,7 +34,7 @@
     _saveTimer = setTimeout(() => {
       try {
         // Strip transient fields and cap size
-        const toStore = logs.slice(-MAX_STORED_LOGS).map(({ _details, _details_loading, ...rest }) => rest);
+        const toStore = logs.slice(-MAX_STORED_LOGS).map(({ _details, _details_loading, _expanded, ...rest }) => rest);
         localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(toStore));
       } catch (_) {}
     }, 500);
@@ -73,12 +73,37 @@
     return TYPE_BADGE_CLASSES[type] || "bg-secondary text-secondary-foreground border-transparent";
   }
 
+  function loadDetailsForItem(item) {
+    if (item.trace_info && !item._details && !item._details_loading) {
+      item._details_loading = true;
+      items = items;
+      live.pushEvent("format-details", { type: item.type, trace_info: item.trace_info }, ({ details }) => {
+        item._details = details;
+        item._details_loading = false;
+        items = items;
+      });
+    }
+  }
+
   onMount(() => {
     let wrapper_s = document.getElementById("logs-container-s");
     let wrapper = document.getElementById("logs-container");
 
     live.handleEvent("add-log", (log) => {
       console.log(log);
+      // If expand_all is active, auto-expand and load details for the new log
+      if ($dashboardStore.expand_all) {
+        log._expanded = true;
+        dashboardStore.updateExpandedCount(1);
+        if (log.trace_info) {
+          log._details_loading = true;
+          live.pushEvent("format-details", { type: log.type, trace_info: log.trace_info }, ({ details }) => {
+            log._details = details;
+            log._details_loading = false;
+            items = items;
+          });
+        }
+      }
       items = [...items, log];
       dashboardStore.updateLogCount(1);
       saveLogs(items);
@@ -108,24 +133,52 @@
     window.addEventListener("x:clear-logs", () => {
       items = [];
       dashboardStore.setLogCount(0);
+      dashboardStore.setExpandAll(false);
       saveLogs(items);
+    });
+
+    window.addEventListener("x:expand-all-logs", () => {
+      dashboardStore.setExpandAll(true);
+      let newlyExpanded = 0;
+      items.forEach((item) => {
+        if (!item._expanded) {
+          item._expanded = true;
+          newlyExpanded++;
+        }
+        loadDetailsForItem(item);
+      });
+      dashboardStore.setExpandedCount(items.length);
+      items = items;
+    });
+
+    window.addEventListener("x:collapse-all-logs", () => {
+      items.forEach((item) => { item._expanded = false; });
+      items = items;
+      dashboardStore.setExpandAll(false);
     });
 
     window.addEventListener("x:download-logs", (e) => {
       const format = e.detail?.format || "text";
       const link = document.createElement("a");
+      const now = new Date();
+      const ts = now.getFullYear().toString() +
+        String(now.getMonth() + 1).padStart(2, "0") +
+        String(now.getDate()).padStart(2, "0") + "_" +
+        String(now.getHours()).padStart(2, "0") +
+        String(now.getMinutes()).padStart(2, "0") +
+        String(now.getSeconds()).padStart(2, "0");
 
       if (format === "json") {
-        const exportItems = items.map(({ _details, _details_loading, ...rest }) => rest);
+        const exportItems = items.map(({ _details, _details_loading, _expanded, ...rest }) => rest);
         const content = JSON.stringify(exportItems, null, 2);
         const file = new Blob([content], { type: "application/json" });
         link.href = URL.createObjectURL(file);
-        link.download = "x_trace.json";
+        link.download = `xtrace_${ts}.json`;
       } else {
         const content = items.map((log) => log.content).join("\n");
         const file = new Blob([content], { type: "text/plain" });
         link.href = URL.createObjectURL(file);
-        link.download = "x_trace.log";
+        link.download = `xtrace_${ts}.log`;
       }
 
       link.click();
@@ -197,20 +250,21 @@
   }
 
   function toggleLog(item) {
-    if ($dashboardStore.selected === item.time) {
-      dashboardStore.setLog(null);
-    } else {
-      dashboardStore.setLog(item);
-      if (item.trace_info && !item._details && !item._details_loading) {
-        item._details_loading = true;
-        items = items;
-        live.pushEvent("format-details", { type: item.type, trace_info: item.trace_info }, ({ details }) => {
-          item._details = details;
-          item._details_loading = false;
-          items = items;
-        });
+    if (item._expanded) {
+      // Collapse this item
+      item._expanded = false;
+      dashboardStore.updateExpandedCount(-1);
+      if ($dashboardStore.selected === item.time) {
+        dashboardStore.setLog(null);
       }
+    } else {
+      // Expand this item
+      item._expanded = true;
+      dashboardStore.updateExpandedCount(1);
+      dashboardStore.setLog(item);
+      loadDetailsForItem(item);
     }
+    items = items;
   }
 
   function applySettings(item) {
@@ -219,7 +273,7 @@
   }
 </script>
 
-<div class="grid grid-cols-1">
+<div class="grid grid-cols-1 relative z-0">
   <div id="logs-container" class="p-2 flex flex-col gap-1 mb-6">
     {#each items as item (item.time)}
       <div in:fade out:blur>
@@ -234,14 +288,19 @@
             <Badge variant="outline" class="shrink-0 {get_badge_class(item.type)}">{item.type}</Badge>
             <div class={cn(
               "text-muted-foreground text-sm",
-              $dashboardStore.selected === item.time ? "" : "line-clamp-4"
+              item._expanded ? "" : "line-clamp-4"
             )}>
               {format_log(item)}
             </div>
           </div>
         </button>
-        {#if $dashboardStore.selected === item.time}
-          <div transition:slide={{ duration: 200 }} class="rounded-b-lg border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30 px-4 pt-2 pb-3 -mt-1 ml-2 mr-2">
+        {#if item._expanded}
+          <div transition:slide={{ duration: 200 }} class={cn(
+            "rounded-b-lg px-4 pt-2 pb-3 -mt-1 ml-2 mr-2",
+            $dashboardStore.selected === item.time
+              ? "border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30"
+              : "bg-muted/30"
+          )}>
             <div class="flex items-center justify-between mb-2">
               <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                 <span class="font-semibold text-foreground">Time</span>
@@ -390,7 +449,12 @@
                   >
                     <div class="flex items-center gap-3">
                       <CirclePlay class="size-5 text-blue-600 shrink-0" />
-                      <span class="truncate font-medium text-sm">{item.name || item.t_specs}</span>
+                      <div class="min-w-0 flex-1">
+                        <span class="truncate font-medium text-sm block">{item.name || item.t_specs}</span>
+                        {#if item.saved_at}
+                          <span class="text-xs text-muted-foreground">Saved: {new Date(item.saved_at).toLocaleString()}</span>
+                        {/if}
+                      </div>
                     </div>
                   </button>
                 {/each}
