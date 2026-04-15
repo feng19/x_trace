@@ -7,20 +7,12 @@ function createStore() {
     log: null,
     log_count: 0,
     auto_scroll: true,
-    right_panel_show: true,
     setting_tab: "trace-settings",
-    right_panel: null,
   });
 
   return {
     subscribe: store.subscribe,
     update: store.update,
-    showSettingPanel: () => {
-      store.update((store) => ({ ...store, right_panel_show: true }));
-    },
-    hideSettingPanel: () => {
-      store.update((store) => ({ ...store, right_panel_show: false }));
-    },
     setLogCount: (count) => {
       store.update((store) => ({ ...store, log_count: count }));
     },
@@ -32,13 +24,6 @@ function createStore() {
     },
     setSettingTab: (value) => {
       store.update((store) => ({ ...store, setting_tab: value }));
-    },
-    setRightPanel: (panel) => {
-      store.update((store) => ({
-        ...store,
-        right_panel_show: true,
-        right_panel: panel,
-      }));
     },
     setLog: (log) => {
       if (log) {

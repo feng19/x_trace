@@ -4,10 +4,10 @@
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import Flash from "./flash.svelte";
   import InfoPanel from "./info_panel.svelte";
+  import SettingPanel from "./setting_panel.svelte";
   import ControlNav from "./control_nav.svelte";
   import SearchBar from "./search_bar.svelte";
   import LogList from "./log_list.svelte";
-  import RightPanel from "./right_panel.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import { Separator } from "$lib/components/ui/select";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
@@ -21,9 +21,10 @@
 
   let isCollapsed = false;
   let navCollapsedSize = 4;
-  let defaultLayout = [265, 655, 260];
-  let right_panel;
+  let defaultLayout = [35, 65];
   let left_panel;
+
+  $: isTracing = op_status?.stop_trace === true;
 
   function onUpdateStore(data) {
     console.log(data);
@@ -41,21 +42,6 @@
   }
   function onExpand() {
     isCollapsed = false;
-  }
-
-  $: {
-    if ($dashboardStore.right_panel_show) {
-      right_panel && right_panel.expand();
-    } else {
-      right_panel && right_panel.collapse();
-    }
-  }
-
-  function onSettingPanelCollapse() {
-    dashboardStore.hideSettingPanel();
-  }
-  function onSettingPanelExpand() {
-    dashboardStore.showSettingPanel();
   }
 
   onMount(() => {
@@ -122,40 +108,47 @@
   class="h-full flex-1 items-stretch"
 >
   <!-- left -->
-  <Resizable.Pane
-    defaultSize={defaultLayout[0]}
-    collapsedSize={navCollapsedSize}
-    collapsible
-    minSize={15}
-    maxSize={20}
-    {onCollapse}
-    {onExpand}
-    bind:pane={left_panel}
-  >
-    <div class="flex h-[52px] items-center justify-center px-2">
-      <div class="flex items-center gap-1">
-        <ControlNav {live} isCollapsed {op_status} side="bottom" />
-      </div>
-    </div>
-    <Separator />
+  {#if !isTracing}
+    <Resizable.Pane
+      defaultSize={defaultLayout[0]}
+      collapsedSize={navCollapsedSize}
+      collapsible
+      minSize={20}
+      maxSize={45}
+      {onCollapse}
+      {onExpand}
+      bind:pane={left_panel}
+    >
+      <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto">
+        <div class="sticky top-0 z-49 bg-white">
+          <div class="flex h-[52px] items-center justify-center px-2">
+            <div class="flex items-center gap-1">
+              <ControlNav {live} isCollapsed {op_status} side="bottom" />
+            </div>
+          </div>
+          <Separator />
+        </div>
 
-    {#if !isCollapsed}
-      <InfoPanel {node_info} {trace_settings} />
-      <Separator />
-    {/if}
-  </Resizable.Pane>
+        {#if !isCollapsed}
+          <InfoPanel {node_info} {trace_settings} />
+          <Separator />
+          <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} />
+        {/if}
+      </ScrollArea>
+    </Resizable.Pane>
 
-  <Resizable.Handle withHandle />
+    <Resizable.Handle withHandle />
+  {/if}
 
   <!-- center -->
-  <Resizable.Pane defaultSize={defaultLayout[1]} minSize={30}>
+  <Resizable.Pane defaultSize={isTracing ? 100 : defaultLayout[1]} minSize={30}>
     <ScrollArea
       id="logs-container-s"
       class="h-screen overflow-y-auto overscroll-y-auto grid grid-cols-1"
     >
       <div class="sticky top-0 z-49 bg-white">
         <div class="px-2 h-[52px] flex items-center gap-1">
-          <SearchBar {live} />
+          <SearchBar {live} {isTracing} />
         </div>
         <Separator />
       </div>
@@ -169,32 +162,6 @@
         accept=".json"
       />
       <div id="clipboard"></div>
-    </ScrollArea>
-  </Resizable.Pane>
-
-  <Resizable.Handle withHandle />
-
-  <!-- right -->
-  <Resizable.Pane
-    collapsible={true}
-    bind:pane={right_panel}
-    onCollapse={onSettingPanelCollapse}
-    onExpand={onSettingPanelExpand}
-    defaultSize={defaultLayout[2]}
-    minSize={15}
-    maxSize={45}
-  >
-    <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto">
-      <RightPanel
-        {live}
-        {op_status}
-        settings={{
-          node_info,
-          trace_settings,
-          rate_limiting,
-          options_settings,
-        }}
-      />
     </ScrollArea>
   </Resizable.Pane>
 </Resizable.PaneGroup>
