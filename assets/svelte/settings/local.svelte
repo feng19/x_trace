@@ -28,7 +28,7 @@
   let apply_item = {
     title: "Apply this Setting",
     icon: CirclePlay,
-    class: "h-full bg-blue-100 flex items-center",
+    class: "h-full bg-blue-100 dark:bg-blue-950 flex items-center",
     variant: "link",
     show: true,
     disabled: false,
@@ -37,7 +37,7 @@
   let remove_item = {
     title: "Remove this Setting",
     icon: CircleX,
-    class: "h-full bg-red-100 flex items-center",
+    class: "h-full bg-red-100 dark:bg-red-950 flex items-center",
     variant: "link",
     show: true,
     disabled: false,
@@ -53,8 +53,8 @@
       class={cn(
         "flex select-none cursor-pointer",
         $settingsLocalStorage.selected == item.id
-          ? "bg-red-100 font-bold"
-          : "odd:bg-slate-50"
+          ? "bg-red-100 dark:bg-red-950 font-bold"
+          : "odd:bg-slate-50 dark:odd:bg-slate-900"
       )}
     >
       <input
@@ -65,7 +65,7 @@
       />
       <label for={"ls-c-" + item.id} class="flex-1 py-1 ml-2">
         {#if item.name}
-          <div class="text-sm font-semibold text-blue-700 mb-1">{item.name}</div>
+          <div class="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-1">{item.name}</div>
         {/if}
         <span class="font-bold">TSpecs:</span>
         <pre class="text-wrap">{item.t_specs}</pre>
@@ -93,7 +93,7 @@
       </div>
     </div>
   {/each}
-  <div class="hidden only:block text-center text-sm text-gray-500">
+  <div class="hidden only:block text-center text-sm text-muted-foreground">
     No local settings found
   </div>
 </div>

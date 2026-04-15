@@ -7,11 +7,20 @@
     <.live_title suffix=" · Phoenix Framework">
       {assigns[:page_title] || "XTrace"}
     </.live_title>
+    <script>
+      // Prevent flash of wrong theme (synced with mode-watcher)
+      (function() {
+        var mode = localStorage.getItem("mode-watcher-mode");
+        if (mode === '"dark"' || (!mode && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
-  <body class="bg-white">
+  <body class="bg-background">
     {@inner_content}
   </body>
 </html>

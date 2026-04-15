@@ -36,7 +36,7 @@
 
 <div class="grid grid-cols-1">
   <div class="sticky top-0 z-49">
-    <div class="px-2 bg-white flex h-[52px] items-center justify-between">
+    <div class="px-2 bg-background flex h-[52px] items-center justify-between">
       <Tooltip.Root openDelay={0}>
         <Tooltip.Trigger
           class={buttonVariants({ variant: "ghost", size: "icon" })}

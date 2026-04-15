@@ -15,26 +15,26 @@
   let items = [];
 
   const TYPE_BADGE_CLASSES = {
-    call:          "bg-blue-100 text-blue-800 border-blue-200",
-    return_to:     "bg-blue-50 text-blue-600 border-blue-200",
-    return_from:   "bg-sky-100 text-sky-800 border-sky-200",
-    exception_from:"bg-red-100 text-red-800 border-red-200",
-    send:          "bg-violet-100 text-violet-800 border-violet-200",
-    send_to_non_existing_process: "bg-violet-50 text-violet-600 border-violet-200",
-    receive:       "bg-indigo-100 text-indigo-800 border-indigo-200",
-    spawn:         "bg-green-100 text-green-800 border-green-200",
-    exit:          "bg-rose-100 text-rose-800 border-rose-200",
-    link:          "bg-amber-100 text-amber-800 border-amber-200",
-    unlink:        "bg-amber-50 text-amber-600 border-amber-200",
-    getting_linked:   "bg-amber-100 text-amber-700 border-amber-200",
-    getting_unlinked: "bg-amber-50 text-amber-600 border-amber-200",
-    register:      "bg-teal-100 text-teal-800 border-teal-200",
-    unregister:    "bg-teal-50 text-teal-600 border-teal-200",
-    in:            "bg-gray-100 text-gray-700 border-gray-200",
-    out:           "bg-gray-100 text-gray-600 border-gray-200",
-    gc_start:      "bg-orange-100 text-orange-800 border-orange-200",
-    gc_end:        "bg-orange-50 text-orange-600 border-orange-200",
-    cli:           "bg-slate-100 text-slate-700 border-slate-200",
+    call:          "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+    return_to:     "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800",
+    return_from:   "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800",
+    exception_from:"bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+    send:          "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
+    send_to_non_existing_process: "bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-950/50 dark:text-violet-400 dark:border-violet-800",
+    receive:       "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
+    spawn:         "bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
+    exit:          "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800",
+    link:          "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
+    unlink:        "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800",
+    getting_linked:   "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
+    getting_unlinked: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800",
+    register:      "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800",
+    unregister:    "bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-950/50 dark:text-teal-400 dark:border-teal-800",
+    in:            "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+    out:           "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",
+    gc_start:      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
+    gc_end:        "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-800",
+    cli:           "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   };
 
   function get_badge_class(type) {
@@ -148,7 +148,7 @@
         <button
           class={cn(
             "w-full rounded-lg p-3 text-left text-sm transition-all",
-            $dashboardStore.selected === item.time ? "bg-blue-100 border border-blue-300" : "hover:bg-accent"
+            $dashboardStore.selected === item.time ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700" : "hover:bg-accent"
           )}
           on:click={() => toggleLog(item)}
         >
@@ -163,7 +163,7 @@
           </div>
         </button>
         {#if $dashboardStore.selected === item.time}
-          <div transition:slide={{ duration: 200 }} class="rounded-b-lg border border-t-0 border-blue-200 bg-blue-50/50 px-4 pt-2 pb-3 -mt-1 ml-2 mr-2">
+          <div transition:slide={{ duration: 200 }} class="rounded-b-lg border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30 px-4 pt-2 pb-3 -mt-1 ml-2 mr-2">
             <div class="flex items-center justify-between mb-2">
               <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                 <span class="font-semibold text-foreground">Time</span>
@@ -197,7 +197,7 @@
     <div class="flex flex-col items-center px-4" in:fade out:blur>
       <!-- Links -->
       <div
-        class="mb-6 flex gap-4 items-center text-center text-sm text-gray-500"
+        class="mb-6 flex gap-4 items-center text-center text-sm text-muted-foreground"
       >
         <Button
           variant="link"
@@ -280,11 +280,11 @@
         <!-- Right: Local Storage Settings -->
         {#if $settingsLocalStorage.items.length > 0}
           <div class="w-72 shrink-0">
-            <div class="text-sm font-semibold text-gray-500 mb-3">Saved Settings</div>
+            <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
             <div class="flex flex-col gap-3">
               {#each $settingsLocalStorage.items as item (item.id)}
                 <button
-                  class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition-all hover:bg-blue-50 hover:border-blue-300 shadow-sm active:scale-[0.98]"
+                  class="rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700 shadow-sm active:scale-[0.98]"
                   on:click={() => applySettings(item)}
                 >
                   <div class="flex items-center gap-3">

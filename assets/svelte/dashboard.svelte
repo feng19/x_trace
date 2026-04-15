@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { dashboardStore } from "./d_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
+  import { mode, toggleMode } from "./dark_mode.js";
+  import { ModeWatcher } from "mode-watcher";
   import Flash from "./flash.svelte";
   import InfoPanel from "./info_panel.svelte";
   import SettingPanel from "./setting_panel.svelte";
@@ -13,7 +15,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
-  import { PanelLeftClose, PanelLeftOpen } from "lucide-svelte/icons";
+  import { PanelLeftClose, PanelLeftOpen, Sun, Moon } from "lucide-svelte/icons";
 
   export let live;
   export let node_info;
@@ -109,6 +111,7 @@
   });
 </script>
 
+<ModeWatcher />
 <Flash {live} />
 
 <Resizable.PaneGroup
@@ -129,7 +132,7 @@
       bind:pane={left_panel}
     >
       <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto">
-        <div class="sticky top-0 z-49 bg-white">
+        <div class="sticky top-0 z-49 bg-background">
           <div class="flex h-[52px] items-center justify-center px-2">
             <div class="flex items-center gap-1">
               <ControlNav {live} isCollapsed {op_status} side="bottom" />
@@ -155,7 +158,7 @@
       id="logs-container-s"
       class="h-screen overflow-y-auto overscroll-y-auto grid grid-cols-1"
     >
-      <div class="sticky top-0 z-49 bg-white">
+      <div class="sticky top-0 z-49 bg-background">
         <div class="px-2 h-[52px] flex items-center gap-1">
           {#if !isTracing}
             <Tooltip.Root openDelay={0}>
@@ -181,6 +184,28 @@
             </Tooltip.Root>
           {/if}
           <SearchBar {live} {isTracing} />
+
+          <Tooltip.Root openDelay={0}>
+            <Tooltip.Trigger asChild let:builder>
+              <Button
+                on:click={toggleMode}
+                builders={[builder]}
+                variant="ghost"
+                size="icon"
+                class="size-9 shrink-0"
+              >
+                {#if $mode === "dark"}
+                  <Sun class="size-4" aria-hidden="true" />
+                {:else}
+                  <Moon class="size-4" aria-hidden="true" />
+                {/if}
+                <span class="sr-only">Toggle Dark Mode</span>
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content side="bottom" class="flex items-center gap-4">
+              {$mode === "dark" ? 'Light Mode' : 'Dark Mode'}
+            </Tooltip.Content>
+          </Tooltip.Root>
         </div>
         <Separator />
       </div>
