@@ -30,10 +30,10 @@
   }
 </script>
 
-<div class="px-2 space-y-4">
-  <div class="grid grid-cols-3 gap-x-2 gap-y-4 items-center">
-    <Label for="options_scope">Fun Scope</Label>
-    <div class="col-span-2">
+<div class="px-1 sm:px-2 space-y-4">
+  <div class="flex flex-col gap-3 sm:gap-4">
+    <div>
+      <Label for="options_scope" class="mb-1.5 block text-xs sm:text-sm">Fun Scope</Label>
       <Switch
         id="options_scope"
         items={scope_items}
@@ -42,8 +42,8 @@
       />
     </div>
 
-    <Label for="options_pid">Match Pids</Label>
-    <div class="col-span-2">
+    <div>
+      <Label for="options_pid" class="mb-1.5 block text-xs sm:text-sm">Match Pids</Label>
       <Switch
         id="options_pid"
         items={pid_items}

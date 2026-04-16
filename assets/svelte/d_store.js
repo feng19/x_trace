@@ -10,6 +10,7 @@ function createStore() {
     setting_tab: "trace-settings",
     expand_all: false,
     expanded_count: 0,
+    setting_mode: false,
   });
 
   return {
@@ -56,6 +57,12 @@ function createStore() {
     },
     updateExpandedCount: (diff) => {
       store.update((s) => ({ ...s, expanded_count: s.expanded_count + diff }));
+    },
+    toggleSettingMode: () => {
+      store.update((s) => ({ ...s, setting_mode: !s.setting_mode }));
+    },
+    setSettingMode: (value) => {
+      store.update((s) => ({ ...s, setting_mode: value }));
     },
   };
 }

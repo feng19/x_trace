@@ -118,26 +118,14 @@
       }
     });
 
-    window.addEventListener("x:print-cli", (e) => {
-      let log = {
-        time: new Date().getTime() * 1000000,
-        type: "cli",
-        pid: "",
-        content: e.detail,
-      };
-      items = [...items, log];
-      dashboardStore.updateLogCount(1);
-      saveLogs(items);
-    });
-
-    window.addEventListener("x:clear-logs", () => {
+    function onClearLogs() {
       items = [];
       dashboardStore.setLogCount(0);
       dashboardStore.setExpandAll(false);
       saveLogs(items);
-    });
+    }
 
-    window.addEventListener("x:expand-all-logs", () => {
+    function onExpandAllLogs() {
       dashboardStore.setExpandAll(true);
       let newlyExpanded = 0;
       items.forEach((item) => {
@@ -149,15 +137,15 @@
       });
       dashboardStore.setExpandedCount(items.length);
       items = items;
-    });
+    }
 
-    window.addEventListener("x:collapse-all-logs", () => {
+    function onCollapseAllLogs() {
       items.forEach((item) => { item._expanded = false; });
       items = items;
       dashboardStore.setExpandAll(false);
-    });
+    }
 
-    window.addEventListener("x:download-logs", (e) => {
+    function onDownloadLogs(e) {
       const format = e.detail?.format || "text";
       const link = document.createElement("a");
       const now = new Date();
@@ -183,9 +171,9 @@
 
       link.click();
       URL.revokeObjectURL(link.href);
-    });
+    }
 
-    window.addEventListener("x:import-logs", (e) => {
+    function onImportLogs(e) {
       const importedItems = e.detail?.items;
       if (!Array.isArray(importedItems)) return;
 
@@ -205,7 +193,21 @@
       items = [...items, ...newItems].sort((a, b) => a.time - b.time);
       dashboardStore.setLogCount(items.length);
       saveLogs(items);
-    });
+    }
+
+    window.addEventListener("x:clear-logs", onClearLogs);
+    window.addEventListener("x:expand-all-logs", onExpandAllLogs);
+    window.addEventListener("x:collapse-all-logs", onCollapseAllLogs);
+    window.addEventListener("x:download-logs", onDownloadLogs);
+    window.addEventListener("x:import-logs", onImportLogs);
+
+    return () => {
+      window.removeEventListener("x:clear-logs", onClearLogs);
+      window.removeEventListener("x:expand-all-logs", onExpandAllLogs);
+      window.removeEventListener("x:collapse-all-logs", onCollapseAllLogs);
+      window.removeEventListener("x:download-logs", onDownloadLogs);
+      window.removeEventListener("x:import-logs", onImportLogs);
+    };
   });
 
   function format_log(log) {
@@ -464,8 +466,8 @@
             <!-- Start Trace -->
             <div>
               <Button
-                variant="default"
-                class="w-full justify-center gap-2"
+                variant="outline"
+                class="w-full justify-center gap-2 text-red-600"
                 on:click={() => live.pushEvent("start-trace", {})}
               >
                 <Play class="size-4" />

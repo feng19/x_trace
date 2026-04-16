@@ -1,46 +1,45 @@
 <script>
   import { Badge } from "$lib/components/ui/badge/index.js";
-  import { Button } from "$lib/components/ui/button/index.js";
-  import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { SquareTerminal, Copy, Check } from "lucide-svelte/icons";
-  import { cn } from "$lib/utils.js";
-  import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
+  import { Maximize2 } from "lucide-svelte/icons";
   import InfoHover from "$lib/components/info_hover.svelte";
+  import DetailDialog from "$lib/components/detail_dialog.svelte";
+  import SettingsDisplay from "$lib/components/settings_display.svelte";
   import NodeSwitcher from "./node_switcher.svelte";
 
   export let live;
   export let node_info;
   export let trace_settings;
-  let t_specs_height;
-  let copied = false;
-  let copyTimeout;
-
-  const copy = () => {
-    const app = new CopyClipBoard({
-      target: document.getElementById("clipboard"),
-      props: { content: trace_settings.cli },
-    });
-    app.$destroy();
-    copied = true;
-    clearTimeout(copyTimeout);
-    copyTimeout = setTimeout(() => { copied = false; }, 2000);
-  };
+  let tspecsDialogOpen = false;
 </script>
 
-<div class="p-4 space-y-4">
+<div class="p-2 space-y-2">
   {#if node_info.node_list.length > 1}
     <NodeSwitcher {live} nodeList={node_info.node_list} selectedNode={node_info.connected_node} />
   {/if}
 
-  <div class="grid grid-cols-2 gap-2">
-    <div class="font-bold">Self Node</div>
+  <div class="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 items-center">
+    <div class="font-bold whitespace-nowrap">Local Node</div>
+    <div>
+      <Badge variant="outline">
+        {node_info.local_node}
+      </Badge>
+    </div>
+
+    <div class="font-bold whitespace-nowrap">Connected Node</div>
+    <div>
+      <Badge variant="outline">
+        {node_info.connected_node}
+      </Badge>
+    </div>
+
+    <div class="font-bold whitespace-nowrap">Self Node</div>
     <div>
       <Badge variant="outline">
         {node_info.is_self ? "Yes" : "No"}
       </Badge>
     </div>
 
-    <div class="font-bold flex items-center gap-2">
+    <div class="font-bold flex items-center gap-1 whitespace-nowrap">
       <span>Code mode</span>
       <InfoHover>
         <pre
@@ -60,58 +59,32 @@
     </div>
   </div>
 
-  <div>
-    <span class="cursor-pointer font-bold">TSpecs:</span><br />
-    <ScrollArea
-      class={cn(
-        "overflow-y-auto overscroll-y-auto",
-        t_specs_height > 192 && "h-48"
-      )}
-    >
-      {#if trace_settings.t_specs == 0}
-        [ ]
-      {:else if trace_settings.t_specs == 1}
-        <pre
-          bind:clientHeight={t_specs_height}
-          class="text-wrap text-sm">[{trace_settings.t_specs}]</pre>
-      {:else}
-        <pre bind:clientHeight={t_specs_height} class="text-wrap text-sm">[<br
-          />&nbsp;&nbsp;{trace_settings.t_specs.join("\n  ")}<br />]</pre>
-      {/if}
-    </ScrollArea>
+  <div class="relative">
+    <div class="absolute top-0 right-0 z-10">
+      <button
+        class="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        on:click={() => { tspecsDialogOpen = true; }}
+        title="Expand Settings"
+      >
+        <Maximize2 class="size-3.5" />
+      </button>
+    </div>
+    <SettingsDisplay
+      tSpecs={trace_settings.t_specs}
+      max={trace_settings.max}
+      options={trace_settings.options}
+      cli={trace_settings.cli}
+      compact
+    />
   </div>
 
-  <div>
-    <span class="cursor-pointer font-bold">Rate-Limiting:</span><br />
-    <pre class="select-all text-sm">{trace_settings.max}</pre>
-  </div>
-
-  <div>
-    <span class="cursor-pointer font-bold">Options:</span><br />
-    <pre class="select-all text-wrap text-sm">{trace_settings.options}</pre>
-  </div>
-
-  <div class="grid grid-cols-2 gap-2">
-    <Button
-      variant="link"
-      class="space-x-2"
-      on:click={() => {
-        window.dispatchEvent(
-          new CustomEvent("x:print-cli", { detail: trace_settings.cli })
-        );
-      }}
-    >
-      <SquareTerminal class="size-4" />
-      <span>Print Cli</span>
-    </Button>
-    <Button variant="link" class="space-x-2" on:click={copy}>
-      {#if copied}
-        <Check class="size-4" />
-        <span>Copied!</span>
-      {:else}
-        <Copy class="size-4" />
-        <span>Copy Cli</span>
-      {/if}
-    </Button>
-  </div>
 </div>
+
+<DetailDialog
+  bind:open={tspecsDialogOpen}
+  title="Trace Settings"
+  tSpecs={trace_settings.t_specs}
+  max={trace_settings.max}
+  options={trace_settings.options}
+  cli={trace_settings.cli}
+/>

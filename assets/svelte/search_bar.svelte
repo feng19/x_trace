@@ -7,6 +7,7 @@
     FileUp,
     FileText,
     FileJson,
+    Play,
     SquareX,
     ChevronDown,
     ChevronsDownUp,
@@ -19,9 +20,21 @@
 
   export let live;
   export let isTracing = false;
+  export let op_status;
+
+  $: startTraceItem = {
+    show: op_status.start_trace !== "hidden",
+    disabled: !op_status.start_trace,
+  };
+  $: stopTraceItem = {
+    show: op_status.stop_trace !== "hidden",
+    disabled: !op_status.stop_trace,
+  };
 
   let downloadOpen = false;
   let clearConfirmOpen = false;
+
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
   $: hasLogs = $dashboardStore.log_count > 0;
   $: expandAll = $dashboardStore.expand_all;
@@ -42,7 +55,7 @@
   }
 </script>
 
-{#if isTracing}
+{#if isTracing && stopTraceItem.show}
   <Tooltip.Root openDelay={0}>
     <Tooltip.Trigger asChild let:builder>
       <Button
@@ -51,6 +64,7 @@
         variant="ghost"
         size="icon"
         class="size-9 text-red-600 shrink-0"
+        disabled={stopTraceItem.disabled}
       >
         <SquareX class="size-4" aria-hidden="true" />
         <span class="sr-only">Stop Trace</span>
@@ -58,6 +72,25 @@
     </Tooltip.Trigger>
     <Tooltip.Content side="bottom" class="flex items-center gap-4">
       Stop Trace
+    </Tooltip.Content>
+  </Tooltip.Root>
+{:else if !isTracing && startTraceItem.show}
+  <Tooltip.Root openDelay={0}>
+    <Tooltip.Trigger asChild let:builder>
+      <Button
+        on:click={() => live.pushEvent("start-trace", {})}
+        builders={[builder]}
+        variant="ghost"
+        size="icon"
+        class="size-9 text-red-600 shrink-0"
+        disabled={startTraceItem.disabled}
+      >
+        <Play class="size-4" aria-hidden="true" />
+        <span class="sr-only">Start Trace</span>
+      </Button>
+    </Tooltip.Trigger>
+    <Tooltip.Content side="bottom" class="flex items-center gap-4">
+      Start Trace
     </Tooltip.Content>
   </Tooltip.Root>
 {/if}
@@ -125,6 +158,9 @@
         </Tooltip.Trigger>
         <Tooltip.Content side="bottom" class="flex items-center gap-4">
           Clear All
+          <kbd class="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+            {isMac ? "⌘⇧K" : "Ctrl+Shift+K"}
+          </kbd>
         </Tooltip.Content>
       </Tooltip.Root>
     </Popover.Trigger>

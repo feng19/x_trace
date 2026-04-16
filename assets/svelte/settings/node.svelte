@@ -62,10 +62,10 @@
 {:else}
   <form
     phx-submit="setup-node"
-    class="px-2 flex flex-col gap-4"
+    class="px-1 sm:px-2 flex flex-col gap-3 sm:gap-4"
     in:blur={{ duration: 200 }}
   >
-    <div class="flex items-center gap-2">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
       <div class="flex-1">
         <Input
           name="node_name"
@@ -74,7 +74,7 @@
           required
         />
       </div>
-      <AtSign class="size-4" />
+      <AtSign class="size-4 hidden sm:block shrink-0" />
       <div class="flex-1">
         <Input
           name="node_domain"
@@ -104,23 +104,21 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-5 place-items-center">
-      <Label class="col-span-2" for="is_long_name">Longname?</Label>
+    <div class="flex items-center gap-3">
+      <Label for="is_long_name" class="text-xs sm:text-sm shrink-0">Longname?</Label>
       <input type="hidden" name="is_long_name" value={is_long_name} />
       <Checkbox
-        class="col-span-3"
         id="is_long_name"
         bind:checked={is_long_name}
       />
     </div>
 
-    <div class="grid grid-cols-5 place-items-center">
-      <Label class="col-span-2" for="cookie_input">Cookie</Label>
+    <div class="space-y-1.5">
+      <Label for="cookie_input" class="text-xs sm:text-sm">Cookie</Label>
       <Input
-        class="col-span-3"
         id="cookie_input"
         name="cookie"
-        placeholder="if empty will use value of ~/.erlang.cookie"
+        placeholder="if empty will use ~/.erlang.cookie"
       />
     </div>
     <Button type="submit">Setup Node</Button>

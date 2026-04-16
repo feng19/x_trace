@@ -7,7 +7,6 @@
   import Flash from "./flash.svelte";
   import InfoPanel from "./info_panel.svelte";
   import SettingPanel from "./setting_panel.svelte";
-  import ControlNav from "./control_nav.svelte";
   import SearchBar from "./search_bar.svelte";
   import LogList from "./log_list.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
@@ -15,7 +14,10 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
-  import { PanelLeftClose, PanelLeftOpen, Sun, Moon } from "lucide-svelte/icons";
+  import {
+    PanelLeftClose, PanelLeftOpen, Sun, Moon, Settings,
+    Play, SquareX,
+  } from "lucide-svelte/icons";
 
   export let live;
   export let node_info;
@@ -26,11 +28,22 @@
 
   let isCollapsed = false;
   let navCollapsedSize = 4;
-  let defaultLayout = [35, 65];
+  let defaultLayout = [25, 75];
   let left_panel;
   let leftPanelHidden = false;
 
+  $: startTraceItem = {
+    show: op_status.start_trace !== "hidden",
+    disabled: !op_status.start_trace,
+    btn_class: op_status.start_trace ? "text-red-600" : "",
+  };
+  $: stopTraceItem = {
+    show: op_status.stop_trace !== "hidden",
+    disabled: !op_status.stop_trace,
+    btn_class: op_status.stop_trace ? "text-red-600" : "",
+  };
   $: isTracing = op_status?.stop_trace === true;
+  $: if (isTracing) dashboardStore.setSettingMode(false);
   $: showLeftPanel = !isTracing && !leftPanelHidden;
 
   function toggleLeftPanel() {
@@ -56,6 +69,15 @@
   }
 
   onMount(() => {
+    // Global keyboard shortcut: Cmd+Shift+K (Mac) / Ctrl+Shift+K (PC) to clear logs
+    function onKeyDown(e) {
+      if (e.shiftKey && (e.metaKey || e.ctrlKey) && e.key === "K") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("x:clear-logs"));
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+
     settingsLocalStorage.load();
     live.handleEvent("save-settings", (item) => {
       dashboardStore.setSettingTab("local-settings");
@@ -132,6 +154,10 @@
         localStorage.setItem("x-trace-curr-settings", encoded);
       }
     });
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
   });
 </script>
 
@@ -149,26 +175,40 @@
       defaultSize={defaultLayout[0]}
       collapsedSize={navCollapsedSize}
       collapsible
-      minSize={20}
+      minSize={15}
       maxSize={45}
       {onCollapse}
       {onExpand}
       bind:pane={left_panel}
     >
-      <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto">
-        <div class="sticky top-0 z-50 bg-background">
-          <div class="flex h-[52px] items-center justify-center px-2">
-            <div class="flex items-center gap-1">
-              <ControlNav {live} isCollapsed {op_status} side="bottom" />
-            </div>
-          </div>
-          <Separator />
-        </div>
-
+      <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto px-1">
         {#if !isCollapsed}
           <InfoPanel {live} {node_info} {trace_settings} />
-          <Separator />
-          <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} />
+
+          <div class="p-2 space-y-2">
+            {#if startTraceItem.show}
+              <Button
+                variant="outline"
+                class="w-full space-x-2 {startTraceItem.btn_class}"
+                disabled={startTraceItem.disabled}
+                on:click={() => live.pushEvent("start-trace", {})}
+              >
+                <Play class="size-4" />
+                <span>Start Trace</span>
+              </Button>
+            {/if}
+            {#if stopTraceItem.show}
+              <Button
+                variant="outline"
+                class="w-full space-x-2 {stopTraceItem.btn_class}"
+                disabled={stopTraceItem.disabled}
+                on:click={() => live.pushEvent("stop-trace", {})}
+              >
+                <SquareX class="size-4" />
+                <span>Stop Trace</span>
+              </Button>
+            {/if}
+          </div>
         {/if}
       </ScrollArea>
     </Resizable.Pane>
@@ -207,7 +247,24 @@
               </Tooltip.Content>
             </Tooltip.Root>
           {/if}
-          <SearchBar {live} {isTracing} />
+          <Tooltip.Root openDelay={0}>
+            <Tooltip.Trigger asChild let:builder>
+              <Button
+                on:click={() => dashboardStore.toggleSettingMode()}
+                builders={[builder]}
+                variant={$dashboardStore.setting_mode ? "default" : "ghost"}
+                size="icon"
+                class="size-9 shrink-0"
+              >
+                <Settings class="size-4" aria-hidden="true" />
+                <span class="sr-only">{$dashboardStore.setting_mode ? 'Close Settings' : 'Open Settings'}</span>
+              </Button>
+            </Tooltip.Trigger>
+            <Tooltip.Content side="bottom" class="flex items-center gap-4">
+              {$dashboardStore.setting_mode ? 'Close Settings' : 'Open Settings'}
+            </Tooltip.Content>
+          </Tooltip.Root>
+          <SearchBar {live} {isTracing} {op_status} />
 
           <Tooltip.Root openDelay={0}>
             <Tooltip.Trigger asChild let:builder>
@@ -234,7 +291,11 @@
         <Separator />
       </div>
 
-      <LogList {live} {node_info} />
+      {#if $dashboardStore.setting_mode}
+        <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} {op_status} />
+      {:else}
+        <LogList {live} {node_info} />
+      {/if}
       <input
         type="file"
         id="upload-setting-input"
