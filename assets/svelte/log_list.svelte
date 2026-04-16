@@ -9,10 +9,11 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, Github, CirclePlay, Copy, Check, FileUp, Play } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play } from "lucide-svelte/icons";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import NodeSwitcher from "./node_switcher.svelte";
+  import StringInspectDialog from "$lib/components/string_inspect_dialog.svelte";
 
   export let live;
   export let node_info = {};
@@ -66,7 +67,6 @@
     out:           "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",
     gc_start:      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
     gc_end:        "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-800",
-    cli:           "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   };
 
   function get_badge_class(type) {
@@ -220,12 +220,21 @@
   let copyTimeout;
 
   let viewerIdCounter = 0;
+  let stringDialogOpen = false;
+  let stringInspectText = "";
 
   function initViewer(node, content) {
     let currentContent = content;
     const id = `log-list-${++viewerIdCounter}`;
     const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true, toolbar: { filter: false }});
     viewer.setContent(content || "");
+    viewer.onInspect((event) => {
+      if (event.type === "String") {
+        event.preventDefault();
+        stringInspectText = event.copyText;
+        stringDialogOpen = true;
+      }
+    });
     filterStore.registerViewer(id, viewer);
     return {
       update(newContent) {
@@ -371,7 +380,7 @@
           href="https://github.com/feng19/x_trace"
           target="_blank"
         >
-          <Github class="size-4" />
+          <ExternalLink class="size-4" />
           <span>Github</span>
         </Button>
       </div>
@@ -480,3 +489,5 @@
     </div>
   {/if}
 </div>
+
+<StringInspectDialog bind:open={stringDialogOpen} rawString={stringInspectText} />
