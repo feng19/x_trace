@@ -1,12 +1,29 @@
 defmodule XTrace do
   @moduledoc false
+  require Logger
+
+  def get_tracing_node do
+    Application.fetch_env(:x_trace, :tracing_node)
+  end
+
+  def set_tracing_node({node, _cookie} = value) when is_atom(node) do
+    Application.put_env(:x_trace, :tracing_node, value)
+  end
 
   def load_config_from_cli do
     {args, _, _} =
       Burrito.Util.Args.get_arguments()
       |> OptionParser.parse(
-        aliases: [p: :port],
-        strict: [open: :boolean, ip: :string, port: :integer, cookie: :string]
+        aliases: [p: :port, n: :node],
+        strict: [
+          open: :boolean,
+          ip: :string,
+          port: :integer,
+          cookie: :string,
+          node: :string,
+          sname: :string,
+          name: :string
+        ]
       )
 
     endpoint = Application.get_env(:x_trace, XTraceWeb.Endpoint)
@@ -33,8 +50,42 @@ defmodule XTrace do
     if browser_open = Keyword.get(args, :open, false),
       do: Application.put_env(:phoenix, :browser_open, browser_open)
 
-    if cookie = Keyword.get(args, :cookie),
-      do: XTrace.NodeHelper.setup_node(:x_trace, :shortnames, cookie)
+    cookie = Keyword.get(args, :cookie, "")
+    connect_node = Keyword.get(args, :node)
+
+    {name_type, node_name} =
+      cond do
+        name = Keyword.get(args, :name) ->
+          {:longnames, String.to_atom(name)}
+
+        sname = Keyword.get(args, :sname) ->
+          sname = XTrace.NodeHelper.autocomplete_nodename(sname)
+          {:shortnames, sname}
+
+        true ->
+          {nil, nil}
+      end
+
+    # Store node setup config for post-startup (don't start distribution yet)
+    if node_name do
+      Application.put_env(:x_trace, :pending_node_setup, {node_name, name_type, cookie})
+    end
+
+    # Store tracing node config for post-startup
+    if connect_node do
+      set_tracing_node({String.to_atom(connect_node), cookie})
+    end
+  end
+
+  def setup_node do
+    case Application.fetch_env(:x_trace, :pending_node_setup) do
+      {:ok, {node_name, name_type, cookie}} ->
+        Application.delete_env(:x_trace, :pending_node_setup)
+        XTrace.NodeHelper.setup_node(node_name, name_type, cookie)
+
+      :error ->
+        :ok
+    end
   end
 
   def output_server_info do

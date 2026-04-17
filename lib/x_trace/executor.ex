@@ -41,5 +41,4 @@ defmodule XTrace.Executor do
     error, reason ->
       {error, reason, __STACKTRACE__}
   end
-
 end

@@ -26,6 +26,14 @@ defmodule XTrace.Application do
     case Supervisor.start_link(children, opts) do
       {:ok, _} = return ->
         XTrace.output_server_info()
+        XTrace.NodeHelper.init_erlang_distributed()
+
+        case XTrace.setup_node() do
+          {:ok, _} -> :ok
+          :ok -> :ok
+          {:error, reason} -> IO.puts("Failed to setup node: #{inspect(reason)}")
+        end
+
         return
 
       other ->

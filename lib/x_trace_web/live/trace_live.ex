@@ -30,7 +30,7 @@ defmodule XTraceWeb.TraceLive do
     {reply, socket} =
       try do
         node_info = node |> String.to_existing_atom() |> NodeHelper.change_node()
-        socket = default_assigns(socket, node_info, &LiveJson.push_patch/3)
+        socket = switch_node_assigns(socket, node_info)
         {%{code: 0, msg: "Connect to #{node} succeed!"}, socket}
       catch
         _, _ ->
@@ -57,9 +57,9 @@ defmodule XTraceWeb.TraceLive do
 
     socket =
       case NodeHelper.setup_node(node_name, node_type, cookie) do
-        {:ok, node_info} ->
+        :ok ->
           socket
-          |> LiveJson.push_patch("node_info", node_info)
+          |> LiveJson.push_patch("node_info", NodeHelper.node_info())
           |> put_notice(:success, "Setup #{node_name} succeed!")
 
         {:error, error} ->
@@ -72,9 +72,11 @@ defmodule XTraceWeb.TraceLive do
   def handle_event("shutdown-node", _params, socket) do
     socket =
       case NodeHelper.shutdown_node() do
-        {:ok, node_info} ->
+        :ok ->
+          Process.sleep(100)
+
           socket
-          |> LiveJson.push_patch("node_info", node_info)
+          |> LiveJson.push_patch("node_info", NodeHelper.node_info(Node.self()))
           |> put_notice(:info, "Shutdown node succeed!")
 
         {:error, error} ->
@@ -85,12 +87,16 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("connect-node", %{"connect_node" => node, "connect_cookie" => cookie}, socket) do
+    node = NodeHelper.autocomplete_nodename(node)
+
     socket =
       case NodeHelper.connect_node(node, cookie) do
-        {:ok, node_info} ->
+        {:ok, node, cookie} ->
+          NodeListener.monitor_node(node, cookie)
+
           socket
+          |> LiveJson.push_patch("node_info", NodeHelper.node_info(node))
           |> put_notice(:success, "Connect to #{node} succeed!")
-          |> LiveJson.push_patch("node_info", node_info)
 
         {:error, reason} ->
           put_notice(socket, :error, "Connect to #{node} #{reason}!")
@@ -399,15 +405,20 @@ defmodule XTraceWeb.TraceLive do
 
         if Enum.count(node_info.node_list) !== 1 do
           socket
-          |> default_assigns(node_info, &LiveJson.push_patch/3)
+          |> switch_node_assigns(node_info)
           |> put_notice(:info, "Node:#{node} was downed!")
         else
           # node was downed, so just ignore this message
 
-          default_assigns(socket, node_info, &LiveJson.push_patch/3)
+          switch_node_assigns(socket, node_info)
         end
       end
 
+    {:noreply, socket}
+  end
+
+  def handle_info(unknown_info, socket) do
+    Logger.warning("Trace Live got unknown info: #{inspect(unknown_info)}")
     {:noreply, socket}
   end
 
@@ -444,6 +455,36 @@ defmodule XTraceWeb.TraceLive do
       save_settings: false,
       reset_settings: false
     })
+  end
+
+  defp switch_node_assigns(socket, node_info) do
+    %{
+      t_specs: t_specs,
+      ljrate_limiting: rate_limiting,
+      ljoptions_settings: options_settings
+    } = socket.assigns
+
+    # Reset PIDs (node-specific) but preserve everything else
+    pids = []
+    options_settings = %{options_settings | pid: :all, pids: [], add_pid_enable: false}
+
+    socket
+    |> assign(pids: pids)
+    |> LiveJson.push_patch("node_info", node_info)
+    |> LiveJson.push_patch("options_settings", options_settings)
+    |> update_cli(%{
+      t_specs: format_t_specs(t_specs),
+      max: format_rate_limiting(rate_limiting),
+      options: format_options(options_settings, pids),
+      cli: ""
+    })
+    |> LiveJson.push_patch("op_status", %{
+      start_trace: false,
+      stop_trace: "hidden",
+      save_settings: false,
+      reset_settings: false
+    })
+    |> trace_enable()
   end
 
   defp trace_enable(socket) do
@@ -572,5 +613,4 @@ defmodule XTraceWeb.TraceLive do
   def max_to_rate_limiting(max) when is_integer(max), do: %{max: max}
 
   defp io_msg(content), do: %{time: System.system_time(), type: :io, pid: "", content: content}
-
 end
