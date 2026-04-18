@@ -56,6 +56,15 @@
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("x:clear-logs"));
       }
+      // Ctrl/Cmd+F to focus search input
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        const searchInput = document.getElementById("searchInput");
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
     }
     window.addEventListener("keydown", onKeyDown);
 

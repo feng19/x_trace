@@ -1,5 +1,6 @@
 <script>
   import { dashboardStore } from "./d_store.js";
+  import { filterStore } from "./filter_store.js";
   import FilterPanel from "./filter_panel.svelte";
   import {
     Eraser,
@@ -10,8 +11,11 @@
     Play,
     SquareX,
     ChevronDown,
+    ChevronUp,
     ChevronsDownUp,
     ChevronsUpDown,
+    CaseSensitive,
+    X,
   } from "lucide-svelte/icons";
   import { Input } from "$lib/components/ui/input";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -39,6 +43,64 @@
   $: hasLogs = $dashboardStore.log_count > 0;
   $: expandAll = $dashboardStore.expand_all;
   $: hasAnyExpanded = $dashboardStore.expanded_count > 0;
+
+  // Search state from filter store
+  $: searchQuery = $filterStore.searchQuery;
+  $: searchTotalMatches = $filterStore.searchTotalMatches;
+  $: searchCaseSensitive = $filterStore.searchCaseSensitive;
+  $: hasSearchQuery = searchQuery.length > 0;
+
+  let searchValue = "";
+  let searchDebounceTimer;
+  let searchFocused = false;
+
+  function onSearchInput(e) {
+    searchValue = e.target.value;
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      // Auto-expand all logs so viewers are registered and searchable
+      if (searchValue && hasLogs && !expandAll) {
+        window.dispatchEvent(new CustomEvent("x:expand-all-logs"));
+      }
+      filterStore.searchAll(searchValue);
+    }, 150);
+  }
+
+  function onSearchFocus() {
+    searchFocused = true;
+  }
+
+  function onSearchBlur() {
+    searchFocused = false;
+  }
+
+  function onSearchKeyDown(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        filterStore.searchPrev();
+      } else {
+        filterStore.searchNext();
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      searchValue = "";
+      filterStore.clearSearchAll();
+      e.target.blur();
+    }
+  }
+
+  function clearSearch() {
+    searchValue = "";
+    filterStore.clearSearchAll();
+    // Re-focus the input
+    const input = document.getElementById("searchInput");
+    if (input) input.focus();
+  }
+
+  function toggleCaseSensitive() {
+    filterStore.toggleCaseSensitive();
+  }
 
   function doClearLogs() {
     clearConfirmOpen = false;
@@ -95,8 +157,90 @@
   </Tooltip.Root>
 {/if}
 
-<div class="flex-1">
-  <Input id="searchInput" name="search" />
+<div class="flex-1 relative flex items-center">
+  <Input
+    id="searchInput"
+    name="search"
+    placeholder="Search… (Enter: next, Shift+Enter: prev)"
+    value={searchValue}
+    on:input={onSearchInput}
+    on:keydown={onSearchKeyDown}
+    on:focus={onSearchFocus}
+    on:blur={onSearchBlur}
+    class="pr-20 transition-all duration-200 {searchFocused ? 'ring-2 ring-blue-500 border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.15)]' : ''} {hasSearchQuery ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-700' : ''}"
+  />
+  <div class="absolute right-1 flex items-center gap-0.5">
+    {#if hasSearchQuery}
+      <span class="text-xs text-muted-foreground tabular-nums px-1 select-none">
+        {searchTotalMatches} {searchTotalMatches === 1 ? "match" : "matches"}
+      </span>
+    {/if}
+    <Tooltip.Root openDelay={0}>
+      <Tooltip.Trigger asChild let:builder>
+        <button
+          class="inline-flex items-center justify-center rounded-sm size-6 transition-colors
+            {searchCaseSensitive
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
+          on:click={toggleCaseSensitive}
+          use:builder.action
+          {...builder}
+        >
+          <CaseSensitive class="size-3.5" />
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Content side="bottom">
+        Match Case
+      </Tooltip.Content>
+    </Tooltip.Root>
+    {#if hasSearchQuery}
+      <Tooltip.Root openDelay={0}>
+        <Tooltip.Trigger asChild let:builder>
+          <button
+            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            on:click={() => filterStore.searchPrev()}
+            use:builder.action
+            {...builder}
+          >
+            <ChevronUp class="size-3.5" />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom">
+          Previous Match (Shift+Enter)
+        </Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root openDelay={0}>
+        <Tooltip.Trigger asChild let:builder>
+          <button
+            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            on:click={() => filterStore.searchNext()}
+            use:builder.action
+            {...builder}
+          >
+            <ChevronDown class="size-3.5" />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom">
+          Next Match (Enter)
+        </Tooltip.Content>
+      </Tooltip.Root>
+      <Tooltip.Root openDelay={0}>
+        <Tooltip.Trigger asChild let:builder>
+          <button
+            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            on:click={clearSearch}
+            use:builder.action
+            {...builder}
+          >
+            <X class="size-3.5" />
+          </button>
+        </Tooltip.Trigger>
+        <Tooltip.Content side="bottom">
+          Clear Search (Escape)
+        </Tooltip.Content>
+      </Tooltip.Root>
+    {/if}
+  </div>
 </div>
 
 <FilterPanel />

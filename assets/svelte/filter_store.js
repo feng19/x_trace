@@ -17,21 +17,32 @@ function saveFilteredKeys(keys) {
 }
 
 /**
- * Global filter store for ElixirDataViewer key filtering.
+ * Global filter store for ElixirDataViewer key filtering and search.
  *
  * Manages:
  * - filteredKeys: keys currently hidden across all viewers
  * - availableKeys: all detected keys from all registered viewers
  * - viewers: Map of registered ElixirDataViewer instances
+ * - searchQuery / searchTotalMatches / searchCaseSensitive: global search state
  */
 function createFilterStore() {
   const store = writable({
     filteredKeys: loadFilteredKeys(),
     availableKeys: [],
+    // Search state
+    searchQuery: "",
+    searchTotalMatches: 0,
+    searchCaseSensitive: false,
+    searchActiveViewerId: null,
   });
 
   // Internal viewer registry (not reactive — no need to trigger UI updates)
   const viewers = new Map();
+
+  // Ordered list of viewer IDs for navigation
+  function getViewerIds() {
+    return Array.from(viewers.keys());
+  }
 
   function rebuildAvailableKeys() {
     const allKeys = new Set();
@@ -59,12 +70,60 @@ function createFilterStore() {
     }
   }
 
+  /**
+   * Recalculate total matches across all viewers and update store.
+   */
+  function recalcSearchMatches() {
+    let total = 0;
+    for (const viewer of viewers.values()) {
+      try {
+        total += viewer.getSearchState().getMatchCount();
+      } catch (_) {}
+    }
+    store.update((s) => ({ ...s, searchTotalMatches: total }));
+  }
+
+  /**
+   * Apply the current search query to a single viewer.
+   */
+  function applySearchToViewer(viewer) {
+    const { searchQuery, searchCaseSensitive } = get(store);
+    if (searchQuery) {
+      try {
+        viewer.search(searchQuery, { caseSensitive: searchCaseSensitive, scroll: false });
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Find the next viewer (by insertion order) that has search matches,
+   * starting from the given viewer ID. direction: 1 = forward, -1 = backward.
+   */
+  function findViewerWithMatches(fromId, direction) {
+    const ids = getViewerIds();
+    if (ids.length === 0) return null;
+    let startIdx = fromId ? ids.indexOf(fromId) : (direction === 1 ? 0 : ids.length - 1);
+    if (startIdx < 0) startIdx = direction === 1 ? 0 : ids.length - 1;
+
+    for (let i = 0; i < ids.length; i++) {
+      const idx = (startIdx + direction * (i + 1) + ids.length * ids.length) % ids.length;
+      const id = ids[idx];
+      const viewer = viewers.get(id);
+      try {
+        if (viewer && viewer.getSearchState().getMatchCount() > 0) {
+          return id;
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
   return {
     subscribe: store.subscribe,
 
     /**
      * Register an ElixirDataViewer instance. Merges its available keys
-     * and applies the current filter.
+     * and applies the current filter + search.
      */
     registerViewer(id, viewer) {
       viewers.set(id, viewer);
@@ -76,14 +135,23 @@ function createFilterStore() {
           viewer.setFilterKeys(filteredKeys);
         } catch (_) {}
       }
+      // Apply current search to the new viewer
+      applySearchToViewer(viewer);
+      recalcSearchMatches();
     },
 
     /**
      * Unregister a viewer (e.g., when its DOM node is destroyed).
      */
     unregisterViewer(id) {
+      const { searchActiveViewerId } = get(store);
       viewers.delete(id);
       rebuildAvailableKeys();
+      // If the active search viewer was removed, clear active
+      if (searchActiveViewerId === id) {
+        store.update((s) => ({ ...s, searchActiveViewerId: null }));
+      }
+      recalcSearchMatches();
     },
 
     /**
@@ -99,6 +167,9 @@ function createFilterStore() {
           viewer.setFilterKeys(filteredKeys);
         } catch (_) {}
       }
+      // Re-apply search to updated viewer
+      applySearchToViewer(viewer);
+      recalcSearchMatches();
     },
 
     /**
@@ -144,6 +215,211 @@ function createFilterStore() {
      */
     getViewerCount() {
       return viewers.size;
+    },
+
+    // ─── Search API ───────────────────────────────────────────────────────
+
+    /**
+     * Search across all registered viewers.
+     * @param {string} query - The search term.
+     * @param {boolean} [caseSensitive] - Optional override; defaults to current state.
+     */
+    searchAll(query, caseSensitive) {
+      const cs = caseSensitive ?? get(store).searchCaseSensitive;
+      store.update((s) => ({ ...s, searchQuery: query, searchCaseSensitive: cs, searchActiveViewerId: null }));
+
+      if (!query) {
+        // Clear all viewers
+        for (const viewer of viewers.values()) {
+          try { viewer.clearSearch(); } catch (_) {}
+        }
+        store.update((s) => ({ ...s, searchTotalMatches: 0 }));
+        return;
+      }
+
+      for (const viewer of viewers.values()) {
+        try {
+          viewer.search(query, { caseSensitive: cs, scroll: false });
+        } catch (_) {}
+      }
+      recalcSearchMatches();
+    },
+
+    /**
+     * Clear search across all viewers.
+     */
+    clearSearchAll() {
+      for (const viewer of viewers.values()) {
+        try { viewer.clearSearch(); } catch (_) {}
+      }
+      store.update((s) => ({
+        ...s,
+        searchQuery: "",
+        searchTotalMatches: 0,
+        searchActiveViewerId: null,
+      }));
+    },
+
+    /**
+     * Toggle case sensitivity and re-search.
+     */
+    toggleCaseSensitive() {
+      const s = get(store);
+      const newCs = !s.searchCaseSensitive;
+      store.update((s) => ({ ...s, searchCaseSensitive: newCs }));
+      if (s.searchQuery) {
+        // Re-search with new case sensitivity
+        for (const viewer of viewers.values()) {
+          try {
+            viewer.search(s.searchQuery, { caseSensitive: newCs, scroll: false });
+          } catch (_) {}
+        }
+        recalcSearchMatches();
+      }
+    },
+
+    /**
+     * Navigate to the next search match across all viewers.
+     * Moves within the current active viewer first, then advances to the next.
+     */
+    searchNext() {
+      const { searchQuery, searchActiveViewerId } = get(store);
+      if (!searchQuery) return;
+
+      const ids = getViewerIds();
+      if (ids.length === 0) return;
+
+      // If no active viewer, find the first one with matches
+      if (!searchActiveViewerId) {
+        const firstId = findViewerWithMatches(null, 1);
+        if (!firstId) return;
+        const viewer = viewers.get(firstId);
+        try {
+          // Reset to first match
+          const state = viewer.getSearchState();
+          state.currentIndex = -1;
+          const match = state.next();
+          if (match) {
+            viewer.render();
+            this._scrollViewerMatchIntoView(firstId);
+          }
+        } catch (_) {}
+        store.update((s) => ({ ...s, searchActiveViewerId: firstId }));
+        return;
+      }
+
+      // Try advancing within current viewer
+      const currentViewer = viewers.get(searchActiveViewerId);
+      if (currentViewer) {
+        try {
+          const state = currentViewer.getSearchState();
+          const currentIdx = state.getCurrentIndex();
+          const matchCount = state.getMatchCount();
+
+          if (currentIdx < matchCount - 1) {
+            // More matches in this viewer
+            state.next();
+            currentViewer.render();
+            this._scrollViewerMatchIntoView(searchActiveViewerId);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Move to next viewer with matches
+      const nextId = findViewerWithMatches(searchActiveViewerId, 1);
+      if (!nextId) return;
+      const nextViewer = viewers.get(nextId);
+      try {
+        const state = nextViewer.getSearchState();
+        state.currentIndex = -1;
+        state.next();
+        nextViewer.render();
+        this._scrollViewerMatchIntoView(nextId);
+      } catch (_) {}
+      store.update((s) => ({ ...s, searchActiveViewerId: nextId }));
+    },
+
+    /**
+     * Navigate to the previous search match across all viewers.
+     */
+    searchPrev() {
+      const { searchQuery, searchActiveViewerId } = get(store);
+      if (!searchQuery) return;
+
+      const ids = getViewerIds();
+      if (ids.length === 0) return;
+
+      // If no active viewer, find the last one with matches
+      if (!searchActiveViewerId) {
+        const lastId = findViewerWithMatches(null, -1);
+        if (!lastId) return;
+        const viewer = viewers.get(lastId);
+        try {
+          const state = viewer.getSearchState();
+          // Set to end so prev() wraps to last match
+          state.currentIndex = state.getMatchCount();
+          state.prev();
+          viewer.render();
+          this._scrollViewerMatchIntoView(lastId);
+        } catch (_) {}
+        store.update((s) => ({ ...s, searchActiveViewerId: lastId }));
+        return;
+      }
+
+      // Try going back within current viewer
+      const currentViewer = viewers.get(searchActiveViewerId);
+      if (currentViewer) {
+        try {
+          const state = currentViewer.getSearchState();
+          const currentIdx = state.getCurrentIndex();
+
+          if (currentIdx > 0) {
+            state.prev();
+            currentViewer.render();
+            this._scrollViewerMatchIntoView(searchActiveViewerId);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Move to previous viewer with matches
+      const prevId = findViewerWithMatches(searchActiveViewerId, -1);
+      if (!prevId) return;
+      const prevViewer = viewers.get(prevId);
+      try {
+        const state = prevViewer.getSearchState();
+        state.currentIndex = state.getMatchCount();
+        state.prev();
+        prevViewer.render();
+        this._scrollViewerMatchIntoView(prevId);
+      } catch (_) {}
+      store.update((s) => ({ ...s, searchActiveViewerId: prevId }));
+    },
+
+    /**
+     * Scroll the current search match of a viewer into the page viewport.
+     * @private
+     */
+    _scrollViewerMatchIntoView(viewerId) {
+      const viewer = viewers.get(viewerId);
+      if (!viewer) return;
+      // Let the viewer render, then scroll the highlight into view
+      requestAnimationFrame(() => {
+        try {
+          const container = viewer.container;
+          if (!container) return;
+          // First scroll the viewer's own container to show the match
+          viewer.scrollToCurrentMatch();
+          // Then scroll the viewer container itself into the page viewport
+          const matchEl = container.querySelector(".edv-search-current");
+          if (matchEl) {
+            matchEl.scrollIntoView({ block: "center", behavior: "smooth" });
+          } else {
+            container.scrollIntoView({ block: "center", behavior: "smooth" });
+          }
+        } catch (_) {}
+      });
     },
   };
 }
