@@ -10,12 +10,12 @@
   import SearchBar from "./search_bar.svelte";
   import LogList from "./log_list.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
-  import { Separator } from "$lib/components/ui/select";
+  import { Separator } from "$lib/components/ui/separator";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import {
-    PanelLeftClose, PanelLeftOpen, Sun, Moon, Settings,
+    Sun, Moon, Settings,
     Play, SquareX,
   } from "lucide-svelte/icons";
 
@@ -26,11 +26,7 @@
   export let options_settings;
   export let op_status;
 
-  let isCollapsed = false;
-  let navCollapsedSize = 4;
   let defaultLayout = [25, 75];
-  let left_panel;
-  let leftPanelHidden = false;
 
   $: startTraceItem = {
     show: op_status.start_trace !== "hidden",
@@ -44,11 +40,7 @@
   };
   $: isTracing = op_status?.stop_trace === true;
   $: if (isTracing) dashboardStore.setSettingMode(false);
-  $: showLeftPanel = !isTracing && !leftPanelHidden;
-
-  function toggleLeftPanel() {
-    leftPanelHidden = !leftPanelHidden;
-  }
+  $: showLeftPanel = !isTracing && $dashboardStore.setting_mode;
 
   function onUpdateStore(data) {
     console.log(data);
@@ -56,17 +48,6 @@
   }
 
   live.handleEvent("update_store", onUpdateStore);
-
-  function onLayoutChange(sizes) {
-    // document.cookie = `PaneForge:layout=${JSON.stringify(sizes)}`;
-  }
-
-  function onCollapse() {
-    isCollapsed = true;
-  }
-  function onExpand() {
-    isCollapsed = false;
-  }
 
   onMount(() => {
     // Global keyboard shortcut: Cmd+Shift+K (Mac) / Ctrl+Shift+K (PC) to clear logs
@@ -166,50 +147,42 @@
 
 <Resizable.PaneGroup
   direction="horizontal"
-  {onLayoutChange}
   class="h-full flex-1 items-stretch"
 >
   <!-- left -->
   {#if showLeftPanel}
     <Resizable.Pane
       defaultSize={defaultLayout[0]}
-      collapsedSize={navCollapsedSize}
-      collapsible
       minSize={15}
       maxSize={45}
-      {onCollapse}
-      {onExpand}
-      bind:pane={left_panel}
     >
       <ScrollArea class="h-screen overflow-y-auto overscroll-y-auto px-1">
-        {#if !isCollapsed}
-          <InfoPanel {live} {node_info} {trace_settings} />
+        <InfoPanel {live} {node_info} {trace_settings} />
 
-          <div class="p-2 space-y-2">
-            {#if startTraceItem.show}
-              <Button
-                variant="outline"
-                class="w-full space-x-2 {startTraceItem.btn_class}"
-                disabled={startTraceItem.disabled}
-                on:click={() => live.pushEvent("start-trace", {})}
-              >
-                <Play class="size-4" />
-                <span>Start Trace</span>
-              </Button>
-            {/if}
-            {#if stopTraceItem.show}
-              <Button
-                variant="outline"
-                class="w-full space-x-2 {stopTraceItem.btn_class}"
-                disabled={stopTraceItem.disabled}
-                on:click={() => live.pushEvent("stop-trace", {})}
-              >
-                <SquareX class="size-4" />
-                <span>Stop Trace</span>
-              </Button>
-            {/if}
-          </div>
-        {/if}
+        <div class="p-2 space-y-2">
+          {#if startTraceItem.show}
+            <Button
+              variant="outline"
+              class="w-full space-x-2 {startTraceItem.btn_class}"
+              disabled={startTraceItem.disabled}
+              on:click={() => live.pushEvent("start-trace", {})}
+            >
+              <Play class="size-4" />
+              <span>Start Trace</span>
+            </Button>
+          {/if}
+          {#if stopTraceItem.show}
+            <Button
+              variant="outline"
+              class="w-full space-x-2 {stopTraceItem.btn_class}"
+              disabled={stopTraceItem.disabled}
+              on:click={() => live.pushEvent("stop-trace", {})}
+            >
+              <SquareX class="size-4" />
+              <span>Stop Trace</span>
+            </Button>
+          {/if}
+        </div>
       </ScrollArea>
     </Resizable.Pane>
 
@@ -224,29 +197,6 @@
     >
       <div class="sticky top-0 z-50 bg-background">
         <div class="px-2 h-[52px] flex items-center gap-1">
-          {#if !isTracing}
-            <Tooltip.Root openDelay={0}>
-              <Tooltip.Trigger asChild let:builder>
-                <Button
-                  on:click={toggleLeftPanel}
-                  builders={[builder]}
-                  variant="ghost"
-                  size="icon"
-                  class="size-9 shrink-0"
-                >
-                  {#if leftPanelHidden}
-                    <PanelLeftOpen class="size-4" aria-hidden="true" />
-                  {:else}
-                    <PanelLeftClose class="size-4" aria-hidden="true" />
-                  {/if}
-                  <span class="sr-only">{leftPanelHidden ? 'Show' : 'Hide'} Left Panel</span>
-                </Button>
-              </Tooltip.Trigger>
-              <Tooltip.Content side="bottom" class="flex items-center gap-4">
-                {leftPanelHidden ? 'Show' : 'Hide'} Left Panel
-              </Tooltip.Content>
-            </Tooltip.Root>
-          {/if}
           <Tooltip.Root openDelay={0}>
             <Tooltip.Trigger asChild let:builder>
               <Button

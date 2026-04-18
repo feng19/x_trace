@@ -14,7 +14,7 @@
 </script>
 
 <Dialog.Root bind:open>
-  <Dialog.Content class="max-w-4xl flex flex-col">
+  <Dialog.Content class="max-w-4xl 2xl:max-w-6xl flex flex-col">
     <Dialog.Header class="flex-shrink-0">
       <Dialog.Title>{title}</Dialog.Title>
       {#if name || savedAt}
@@ -29,7 +29,7 @@
       {/if}
     </Dialog.Header>
 
-    <div class="flex-1 max-h-[80vh] overflow-y-auto pr-2">
+    <div class="flex-1 max-h-[80vh] 2xl:max-h-[85vh] overflow-y-auto pr-2">
       <SettingsDisplay {tSpecs} {max} {options} {cli} />
     </div>
   </Dialog.Content>

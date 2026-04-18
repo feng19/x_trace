@@ -76,3 +76,86 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Tailwind Typography prose overrides for design-system integration */
+@layer components {
+  .prose {
+    --tw-prose-body: hsl(var(--foreground));
+    --tw-prose-headings: hsl(var(--foreground));
+    --tw-prose-lead: hsl(var(--muted-foreground));
+    --tw-prose-links: hsl(var(--primary));
+    --tw-prose-bold: hsl(var(--foreground));
+    --tw-prose-counters: hsl(var(--muted-foreground));
+    --tw-prose-bullets: hsl(var(--muted-foreground));
+    --tw-prose-hr: hsl(var(--border));
+    --tw-prose-quotes: hsl(var(--foreground));
+    --tw-prose-quote-borders: hsl(var(--border));
+    --tw-prose-captions: hsl(var(--muted-foreground));
+    --tw-prose-code: hsl(var(--foreground));
+    --tw-prose-pre-code: hsl(var(--foreground));
+    --tw-prose-pre-bg: hsl(var(--muted));
+    --tw-prose-th-borders: hsl(var(--border));
+    --tw-prose-td-borders: hsl(var(--border));
+  }
+
+  .dark .prose {
+    --tw-prose-body: hsl(var(--foreground));
+    --tw-prose-headings: hsl(var(--foreground));
+    --tw-prose-lead: hsl(var(--muted-foreground));
+    --tw-prose-links: hsl(var(--primary));
+    --tw-prose-bold: hsl(var(--foreground));
+    --tw-prose-counters: hsl(var(--muted-foreground));
+    --tw-prose-bullets: hsl(var(--muted-foreground));
+    --tw-prose-hr: hsl(var(--border));
+    --tw-prose-quotes: hsl(var(--foreground));
+    --tw-prose-quote-borders: hsl(var(--border));
+    --tw-prose-captions: hsl(var(--muted-foreground));
+    --tw-prose-code: hsl(var(--foreground));
+    --tw-prose-pre-code: hsl(var(--foreground));
+    --tw-prose-pre-bg: hsl(var(--muted));
+    --tw-prose-th-borders: hsl(var(--border));
+    --tw-prose-td-borders: hsl(var(--border));
+  }
+
+  /* Inline code styling */
+  .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply rounded bg-muted px-1.5 py-0.5 text-sm font-medium;
+  }
+  .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::before,
+  .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::after {
+    content: none;
+  }
+
+  /* Pre/code block styling */
+  .prose :where(pre):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply rounded-lg border border-border bg-muted;
+  }
+
+  /* Blockquote styling */
+  .prose :where(blockquote):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply border-l-2 border-border font-normal not-italic;
+  }
+
+  /* Table styling */
+  .prose :where(thead th):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply border-b border-border font-semibold;
+  }
+  .prose :where(tbody td):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply border-b border-border;
+  }
+
+  /* Link styling */
+  .prose :where(a):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply font-medium underline underline-offset-4 decoration-primary/50 hover:decoration-primary transition-colors;
+  }
+
+  /* Heading anchor styling */
+  .prose :where(h1, h2, h3, h4):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply scroll-mt-20 tracking-tight;
+  }
+
+  /* HR styling */
+  .prose :where(hr):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+    @apply border-border;
+  }
+}

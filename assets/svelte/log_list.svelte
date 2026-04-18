@@ -212,7 +212,7 @@
 
   function format_log(log) {
     let time = new Date(log.time / 1000000).toLocaleTimeString();
-    ms = Math.trunc(log.time / 1000) % 1000;
+    let ms = Math.trunc(log.time / 1000) % 1000;
     return time + "." + ms + " " + log.pid + " " + log.content;
   }
 

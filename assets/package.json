@@ -8,13 +8,16 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@lumis-sh/markdown-it-lumis": "^0.1.1",
+    "@lumis-sh/themes": "^0.0.3",
+    "@tailwindcss/typography": "^0.5.19",
     "bits-ui": "^0.21.13",
     "clsx": "^2.1.1",
     "cmdk-sv": "^0.0.18",
     "live_json": "file:../deps/live_json",
     "live_svelte": "file:../deps/live_svelte",
     "lucide-svelte": "^0.417.0",
-    "marked": "^18.0.0",
+    "markdown-it": "^14.1.1",
     "mode-watcher": "^0.4.1",
     "paneforge": "^0.0.5",
     "phoenix": "file:../deps/phoenix",

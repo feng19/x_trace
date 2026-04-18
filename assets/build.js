@@ -11,13 +11,17 @@ let optsClient = {
     entryPoints: ["js/app.js"],
     bundle: true,
     minify: deploy,
-    target: "es2017",
+    target: "es2020",
+    format: "esm",
     conditions: ["svelte", "browser"],
     outdir: "../priv/static/assets",
     logLevel: "info",
     sourcemap: watch ? "inline" : false,
     watch,
     tsconfig: "./tsconfig.json",
+    // web-tree-sitter conditionally imports Node built-ins that are never
+    // executed in browser context – mark them as external to avoid bundling errors.
+    external: ["fs/promises", "module"],
     plugins: [
         importGlobPlugin(),
         sveltePlugin({
