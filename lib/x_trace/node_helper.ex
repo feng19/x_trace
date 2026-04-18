@@ -60,13 +60,7 @@ defmodule XTrace.NodeHelper do
     domain_list = [:net_adm.localhost() | :net_adm.host_file()] |> Enum.map(&to_string/1)
     is_self = connected_node == local_node
     node_list = Node.list()
-
-    code_mode =
-      if is_self do
-        :code.get_mode()
-      else
-        TraceHelper.call(connected_node, :code, :get_mode, [])
-      end
+    code_mode = get_code_mode(is_self, connected_node)
 
     %{
       connected_node: connected_node,
@@ -122,6 +116,15 @@ defmodule XTrace.NodeHelper do
       String.to_atom(name)
     else
       :"#{name}@#{:net_adm.localhost()}"
+    end
+  end
+
+  def get_code_mode(true, _node), do: :code.get_mode()
+
+  def get_code_mode(false, node) do
+    case TraceHelper.call(node, :code, :get_mode, []) do
+      mode when is_atom(mode) -> mode
+      _ -> :unknown
     end
   end
 end

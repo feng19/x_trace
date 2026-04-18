@@ -59,15 +59,52 @@ function createFilterStore() {
     store.update((s) => ({ ...s, availableKeys: sorted }));
   }
 
+  /**
+   * Get the scroll viewport element inside #logs-container-s (bits-ui ScrollArea).
+   * Returns the viewport element or null.
+   */
+  function getScrollViewport() {
+    try {
+      const root = document.getElementById("logs-container-s");
+      // bits-ui ScrollArea renders a viewport div as a direct child
+      return root?.querySelector("[data-scrollarea-viewport]") ?? null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Execute `fn` while preserving the scroll position of the main log scroll area.
+   * Also suppresses search-match auto-scroll on each viewer's render().
+   */
+  function withScrollPreserved(fn) {
+    const viewport = getScrollViewport();
+    const scrollTop = viewport ? viewport.scrollTop : 0;
+
+    // Suppress search-match auto-scroll during render for all viewers
+    for (const viewer of viewers.values()) {
+      try { viewer.suppressScrollOnRender = true; } catch (_) {}
+    }
+
+    fn();
+
+    // Restore scroll position synchronously (before browser paints)
+    if (viewport) {
+      viewport.scrollTop = scrollTop;
+    }
+  }
+
   function syncAllViewers() {
     const { filteredKeys } = get(store);
-    for (const viewer of viewers.values()) {
-      try {
-        viewer.setFilterKeys(filteredKeys);
-      } catch (_) {
-        // viewer may have been destroyed
+    withScrollPreserved(() => {
+      for (const viewer of viewers.values()) {
+        try {
+          viewer.setFilterKeys(filteredKeys);
+        } catch (_) {
+          // viewer may have been destroyed
+        }
       }
-    }
+    });
   }
 
   /**
@@ -203,11 +240,13 @@ function createFilterStore() {
     clearKeys() {
       store.update((s) => ({ ...s, filteredKeys: [] }));
       saveFilteredKeys([]);
-      for (const viewer of viewers.values()) {
-        try {
-          viewer.clearFilter();
-        } catch (_) {}
-      }
+      withScrollPreserved(() => {
+        for (const viewer of viewers.values()) {
+          try {
+            viewer.clearFilter();
+          } catch (_) {}
+        }
+      });
     },
 
     /**

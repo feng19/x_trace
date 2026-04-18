@@ -9,7 +9,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings } from "lucide-svelte/icons";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import NodeSwitcher from "./node_switcher.svelte";
@@ -91,8 +91,8 @@
 
     live.handleEvent("add-log", (log) => {
       console.log(log);
-      // If expand_all is active, auto-expand and load details for the new log
-      if ($dashboardStore.expand_all) {
+      // If expand_all is active, auto-expand and load details for the new log (skip io type)
+      if ($dashboardStore.expand_all && log.type !== "io") {
         log._expanded = true;
         dashboardStore.updateExpandedCount(1);
         if (log.trace_info) {
@@ -128,14 +128,17 @@
     function onExpandAllLogs() {
       dashboardStore.setExpandAll(true);
       let newlyExpanded = 0;
+      let expandedTotal = 0;
       items.forEach((item) => {
+        if (item.type === "io") return;
         if (!item._expanded) {
           item._expanded = true;
           newlyExpanded++;
         }
+        expandedTotal++;
         loadDetailsForItem(item);
       });
-      dashboardStore.setExpandedCount(items.length);
+      dashboardStore.setExpandedCount(expandedTotal);
       items = items;
     }
 
@@ -436,8 +439,8 @@
             <Separator class="my-0" />
           {/if}
 
-          <!-- Import JSON Logs -->
-          <div>
+          <div class="flex flex-col gap-3">
+            <!-- Import JSON Logs -->
             <Button
               variant="outline"
               class="w-full justify-center gap-2"
@@ -445,6 +448,16 @@
             >
               <FileUp class="size-4" />
               Import JSON Logs
+            </Button>
+
+            <!-- Import Settings -->
+            <Button
+              variant="outline"
+              class="w-full justify-center gap-2"
+              on:click={() => document.getElementById("upload-setting-input").click()}
+            >
+              <Settings class="size-4" />
+              Import Settings
             </Button>
           </div>
 

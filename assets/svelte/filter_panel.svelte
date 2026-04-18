@@ -25,7 +25,7 @@
     filterStore.addKey(key);
     inputValue = "";
     dropdownIndex = -1;
-    if (inputEl) inputEl.focus();
+    if (inputEl) inputEl.focus({ preventScroll: true });
   }
 
   function removeKey(key) {
@@ -41,16 +41,19 @@
   function handleKeyDown(e) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      e.stopPropagation();
       if (dropdownItems.length > 0) {
         dropdownIndex = Math.min(dropdownIndex + 1, dropdownItems.length - 1);
       }
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      e.stopPropagation();
       if (dropdownIndex > 0) {
         dropdownIndex = dropdownIndex - 1;
       }
     } else if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       if (dropdownIndex >= 0 && dropdownIndex < dropdownItems.length) {
         selectKey(dropdownItems[dropdownIndex]);
       } else if (inputValue.trim()) {
@@ -64,6 +67,7 @@
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       if (inputValue) {
         inputValue = "";
         dropdownIndex = -1;
@@ -85,7 +89,7 @@
     if (isOpen) {
       // Focus input when popover opens
       setTimeout(() => {
-        if (inputEl) inputEl.focus();
+        if (inputEl) inputEl.focus({ preventScroll: true });
       }, 50);
     } else {
       inputValue = "";
