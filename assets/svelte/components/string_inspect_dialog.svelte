@@ -4,7 +4,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
-  import { Copy, Check, Search, ChevronUp, ChevronDown, CaseSensitive, X } from "lucide-svelte/icons";
+  import { Copy, Check, Search, ChevronUp, ChevronDown, CaseSensitive } from "lucide-svelte/icons";
   import { elixirStringToPuts } from "../elixir_string_utils.js";
   import { onMount, afterUpdate, tick } from "svelte";
   import { mode } from "../dark_mode.js";
@@ -27,7 +27,6 @@
   let currentMatchIndex = 0;
   let matchCount = 0;
   let searchInputEl;
-  let showSearch = false;
 
   // Content container refs for scrolling
   let rawContentEl;
@@ -274,35 +273,18 @@
     }
   }
 
-  // Toggle search bar
-  async function toggleSearch() {
-    showSearch = !showSearch;
-    if (showSearch) {
-      await tick();
-      searchInputEl?.focus();
-    } else {
-      searchQuery = "";
-    }
-  }
-
-  function closeSearch() {
-    showSearch = false;
+  function clearSearch() {
     searchQuery = "";
   }
 
   // Handle keyboard shortcuts on the dialog
   function handleDialogKeydown(e) {
-    // Ctrl+F / Cmd+F to toggle search
+    // Ctrl+F / Cmd+F to focus search
     if ((e.ctrlKey || e.metaKey) && e.key === "f") {
       e.preventDefault();
       e.stopPropagation();
-      if (!showSearch) {
-        showSearch = true;
-        tick().then(() => searchInputEl?.focus());
-      } else {
-        searchInputEl?.focus();
-        searchInputEl?.select();
-      }
+      searchInputEl?.focus();
+      searchInputEl?.select();
     }
   }
 
@@ -318,7 +300,8 @@
     }
     if (e.key === "Escape") {
       e.preventDefault();
-      closeSearch();
+      clearSearch();
+      searchInputEl?.blur();
     }
   }
 
@@ -407,7 +390,6 @@
 
   // When dialog closes, reset search
   $: if (!open) {
-    showSearch = false;
     searchQuery = "";
     currentMatchIndex = 0;
   }
@@ -440,40 +422,14 @@
     </Dialog.Header>
 
     <Tabs.Root bind:value={activeTab} class="flex-1 flex flex-col min-h-0">
-      <div class="flex items-center justify-between flex-shrink-0">
-        <Tabs.List>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <Tabs.List class="shrink-0">
           <Tabs.Trigger value="raw">Raw String</Tabs.Trigger>
           <Tabs.Trigger value="puts">IO.puts</Tabs.Trigger>
           <Tabs.Trigger value="markdown">Markdown</Tabs.Trigger>
         </Tabs.List>
-        <div class="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-8 w-8"
-            on:click={toggleSearch}
-            title="Search (Ctrl+F)"
-          >
-            <Search class="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-8 w-8"
-            on:click={() => copyToClipboard(currentCopyText)}
-          >
-            {#if copied}
-              <Check class="size-4 text-green-500" />
-            {:else}
-              <Copy class="size-4" />
-            {/if}
-          </Button>
-        </div>
-      </div>
-
-      {#if showSearch}
-        <div class="flex items-center gap-2 mt-2 px-1 py-1.5 rounded-md border bg-background flex-shrink-0">
-          <Search class="size-4 text-muted-foreground ml-2 shrink-0" />
+        <div class="flex items-center gap-1 flex-1 min-w-0 border rounded-md px-2 py-0 bg-background">
+          <Search class="size-3.5 text-muted-foreground shrink-0" />
           <input
             bind:this={searchInputEl}
             bind:value={searchQuery}
@@ -490,62 +446,65 @@
           <Button
             variant="ghost"
             size="icon"
-            class="h-7 w-7 shrink-0 {caseSensitive ? 'bg-accent text-accent-foreground' : ''}"
+            class="h-6 w-6 shrink-0 {caseSensitive ? 'bg-accent text-accent-foreground' : ''}"
             on:click={() => { caseSensitive = !caseSensitive; }}
             title="Match Case"
           >
-            <CaseSensitive class="size-4" />
+            <CaseSensitive class="size-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            class="h-7 w-7 shrink-0"
+            class="h-6 w-6 shrink-0"
             on:click={goToPrevMatch}
             disabled={matchCount === 0}
             title="Previous Match (Shift+Enter)"
           >
-            <ChevronUp class="size-4" />
+            <ChevronUp class="size-3.5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            class="h-7 w-7 shrink-0"
+            class="h-6 w-6 shrink-0"
             on:click={goToNextMatch}
             disabled={matchCount === 0}
             title="Next Match (Enter)"
           >
-            <ChevronDown class="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="h-7 w-7 shrink-0"
-            on:click={closeSearch}
-            title="Close Search (Escape)"
-          >
-            <X class="size-3" />
+            <ChevronDown class="size-3.5" />
           </Button>
         </div>
-      {/if}
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 shrink-0"
+          on:click={() => copyToClipboard(currentCopyText)}
+        >
+          {#if copied}
+            <Check class="size-4 text-green-500" />
+          {:else}
+            <Copy class="size-4" />
+          {/if}
+        </Button>
+      </div>
 
       <Tabs.Content value="raw" class="flex-1 min-h-0 mt-2">
-        <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[75vh]" bind:this={rawContentEl}>
-          <pre class="text-sm p-4 rounded-md bg-muted font-mono whitespace-pre-wrap break-all">{@html highlightedRawHtml}</pre>
+        <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[74vh]" bind:this={rawContentEl}>
+          <pre class="text-sm p-2 rounded-md bg-muted font-mono whitespace-pre-wrap break-all">{@html highlightedRawHtml}</pre>
         </div>
       </Tabs.Content>
 
       <Tabs.Content value="puts" class="flex-1 min-h-0 mt-2">
-        <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[75vh]" bind:this={putsContentEl}>
-          <pre class="text-sm p-4 rounded-md bg-muted font-mono whitespace-pre-wrap break-all">{@html highlightedPutsHtml}</pre>
+        <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[74vh]" bind:this={putsContentEl}>
+          <pre class="text-sm p-2 rounded-md bg-muted font-mono whitespace-pre-wrap break-all">{@html highlightedPutsHtml}</pre>
         </div>
       </Tabs.Content>
 
       <!-- svelte-ignore a11y-click-events-have-key-events -->
       <!-- svelte-ignore a11y-no-static-element-interactions -->
       <Tabs.Content value="markdown" class="flex-1 min-h-0 mt-2">
-        <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[75vh]" bind:this={markdownContentEl}>
+        <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[74vh]" bind:this={markdownContentEl}>
           <div
-            class="prose prose-sm dark:prose-invert max-w-none p-4 rounded-md bg-muted markdown-content"
+            class="prose prose-sm dark:prose-invert max-w-none p-2 rounded-md bg-muted markdown-content"
             use:highlightDom={{ query: searchQuery, caseSensitive, currentMatchIndex: activeTab === "markdown" ? currentMatchIndex : -1 }}
             on:click={handleMarkdownClick}
           >

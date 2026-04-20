@@ -2,6 +2,8 @@
 
 A web-based GUI for [Extrace](https://hex.pm/packages/extrace) / [recon_trace](http://ferd.github.io/recon/recon_trace.html) — making BEAM tracing easy, visual, and interactive.
 
+[Go to the website and watch the video demo.](https://xtrace.feng19.com/)
+
 ## ✨ Features
 
 - **Real-time trace streaming** — Trace messages rendered live in the browser via Phoenix LiveView + Svelte
