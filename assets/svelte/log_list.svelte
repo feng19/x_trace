@@ -5,6 +5,7 @@
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import { cn } from "$lib/utils.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
+  import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
@@ -47,30 +48,30 @@
     dashboardStore.setLogCount(items.length);
   }
 
-  const TYPE_BADGE_CLASSES = {
-    call:          "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
-    return_to:     "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800",
-    return_from:   "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:border-sky-800",
-    exception_from:"bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
-    send:          "bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:border-violet-800",
-    send_to_non_existing_process: "bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-950/50 dark:text-violet-400 dark:border-violet-800",
-    receive:       "bg-indigo-100 text-indigo-800 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800",
-    spawn:         "bg-green-100 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800",
-    exit:          "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800",
-    link:          "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
-    unlink:        "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800",
-    getting_linked:   "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
-    getting_unlinked: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800",
-    register:      "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800",
-    unregister:    "bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-950/50 dark:text-teal-400 dark:border-teal-800",
-    in:            "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
-    out:           "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",
-    gc_start:      "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800",
-    gc_end:        "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-800",
+  const TYPE_DOT_COLORS = {
+    call:          "bg-blue-600 dark:bg-blue-800",
+    return_to:     "bg-blue-300 dark:bg-blue-600",
+    return_from:   "bg-cyan-400 dark:bg-cyan-200",
+    exception_from:"bg-red-500 dark:bg-red-400",
+    send:          "bg-violet-500 dark:bg-violet-400",
+    send_to_non_existing_process: "bg-violet-300 dark:bg-violet-600",
+    receive:       "bg-indigo-500 dark:bg-indigo-400",
+    spawn:         "bg-green-500 dark:bg-green-400",
+    exit:          "bg-rose-500 dark:bg-rose-400",
+    link:          "bg-amber-500 dark:bg-amber-400",
+    unlink:        "bg-amber-300 dark:bg-amber-600",
+    getting_linked:   "bg-amber-500 dark:bg-amber-400",
+    getting_unlinked: "bg-amber-300 dark:bg-amber-600",
+    register:      "bg-teal-500 dark:bg-teal-400",
+    unregister:    "bg-teal-300 dark:bg-teal-600",
+    in:            "bg-gray-500 dark:bg-gray-400",
+    out:           "bg-gray-400 dark:bg-gray-500",
+    gc_start:      "bg-orange-500 dark:bg-orange-400",
+    gc_end:        "bg-orange-300 dark:bg-orange-600",
   };
 
-  function get_badge_class(type) {
-    return TYPE_BADGE_CLASSES[type] || "bg-secondary text-secondary-foreground border-transparent";
+  function get_dot_class(type) {
+    return TYPE_DOT_COLORS[type] || "bg-secondary";
   }
 
   function loadDetailsForItem(item) {
@@ -229,7 +230,7 @@
   function initViewer(node, content) {
     let currentContent = content;
     const id = `log-list-${++viewerIdCounter}`;
-    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true, toolbar: { filter: false, search: false }});
+    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true});
     viewer.setContent(content || "");
     viewer.onInspect((event) => {
       if (event.type === "String") {
@@ -288,18 +289,29 @@
 </script>
 
 <div class="grid grid-cols-1 relative z-0">
-  <div id="logs-container" class="p-2 flex flex-col gap-1 mb-6">
+  <div id="logs-container" class="p-1 flex flex-col gap-0 mb-6">
     {#each items as item (item.time)}
       <div in:fade out:blur>
         <button
           class={cn(
-            "w-full rounded-lg p-3 text-left text-sm transition-all",
+            "w-full rounded-md py-1.5 px-2 text-left text-sm transition-all",
             $dashboardStore.selected === item.time ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700" : "hover:bg-accent"
           )}
           on:click={() => toggleLog(item)}
         >
           <div class="flex items-start gap-2">
-            <Badge variant="outline" class="shrink-0 {get_badge_class(item.type)}">{item.type}</Badge>
+            <Tooltip.Root openDelay={200}>
+              <Tooltip.Trigger asChild let:builder>
+                <span
+                  use:builder.action
+                  {...builder}
+                  class="shrink-0 mt-1.5 inline-block size-2.5 rounded-full {get_dot_class(item.type)}"
+                ></span>
+              </Tooltip.Trigger>
+              <Tooltip.Content side="top" class="text-xs px-2 py-1">
+                {item.type}
+              </Tooltip.Content>
+            </Tooltip.Root>
             <div class={cn(
               "text-muted-foreground text-sm",
               item._expanded ? "" : "line-clamp-4"
@@ -310,13 +322,13 @@
         </button>
         {#if item._expanded}
           <div transition:slide={{ duration: 200 }} class={cn(
-            "rounded-b-lg px-4 pt-2 pb-3 -mt-1 ml-2 mr-2",
+            "rounded-b-md px-3 pt-1.5 pb-2 -mt-0.5 ml-2 mr-2",
             $dashboardStore.selected === item.time
               ? "border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30"
               : "bg-muted/30"
           )}>
-            <div class="flex items-center justify-between mb-2">
-              <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                 <span class="font-semibold text-foreground">Time</span>
                 <span class="text-muted-foreground">{new Date(item.time / 1000000).toLocaleString()}.{Math.trunc(item.time / 1000) % 1000}</span>
                 {#if item.pid}

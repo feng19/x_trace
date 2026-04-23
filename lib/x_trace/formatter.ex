@@ -29,14 +29,14 @@ defmodule XTrace.Formatter do
       {:send_to_non_existing_process, [msg, to]} ->
         [msg: msg, to: to]
 
-      {:call, [{m, f, args}]} ->
-        [module: m, function: f, args: args]
+      {:call, [{_m, _f, args}]} ->
+        args
 
       {:return_to, [{m, f, arity}]} ->
         [module: m, function: f, arity: arity]
 
-      {:return_from, [{m, f, arity}, return]} ->
-        [module: m, function: f, arity: arity, return: return]
+      {:return_from, [{_m, _f, _arity}, return]} ->
+        return
 
       {:exception_from, [{m, f, arity}, {class, val}]} ->
         [module: m, function: f, arity: arity, class: class, value: val]
@@ -135,8 +135,12 @@ defmodule XTrace.Formatter do
     " > (non_existent) #{inspect(to, inspect_opts())}: #{inspect(msg, inspect_opts())}"
   end
 
+  defp format_body(:call, [{m, f, arity}]) when is_integer(arity) do
+    "#{format_module(m)}.#{f}/#{arity}"
+  end
+
   defp format_body(:call, [{m, f, args}]) do
-    "#{format_module(m)}.#{f}#{format_args(args)}"
+    "#{format_module(m)}.#{f}(#{compact_format(args)})"
   end
 
   defp format_body(:return_to, [{m, f, arity}]) do
@@ -144,7 +148,7 @@ defmodule XTrace.Formatter do
   end
 
   defp format_body(:return_from, [{m, f, arity}, return]) do
-    "#{format_module(m)}.#{f}/#{arity} --> #{inspect(return, inspect_opts())}"
+    "#{format_module(m)}.#{f}/#{arity} --> #{compact_format(return)}"
   end
 
   defp format_body(:exception_from, [{m, f, arity}, {class, val}]) do
@@ -217,7 +221,7 @@ defmodule XTrace.Formatter do
 
   defp to_unixtime(_), do: System.system_time()
 
-  @compile {:inline, format_module: 1, format_module1: 1, format_args: 1, format_pid: 1}
+  @compile {:inline, format_module: 1, format_module1: 1, format_args: 1, format_pid: 1, compact_format: 1}
   defp format_module(module_atom), do: to_string(module_atom) |> format_module1()
   defp format_module1(<<"Elixir.", module_str::binary>>), do: module_str
   defp format_module1(module_str), do: ":" <> module_str
@@ -229,6 +233,62 @@ defmodule XTrace.Formatter do
   end
 
   defp format_pid(pid), do: :io_lib.format(~c"~p", [pid]) |> to_string()
+
+  defp compact_format(list) when is_list(list) do
+    len = length(list)
+
+    if len > 3 do
+      "[#{len} items]"
+    else
+      items_str = Enum.map(list, &compact_format/1) |> Enum.join(", ")
+      "[" <> items_str <> "]"
+    end
+  end
+
+  defp compact_format(%{__struct__: struct_name} = struct) do
+    fields = struct |> Map.from_struct() |> Map.to_list()
+    len = length(fields)
+
+    if len > 3 do
+      "%#{format_module(struct_name)}{#{len} fields}"
+    else
+      fields_str = Enum.map(fields, fn {k, v} -> "#{k}: #{compact_format(v)}" end) |> Enum.join(", ")
+      "%#{format_module(struct_name)}{" <> fields_str <> "}"
+    end
+  end
+
+  defp compact_format(map) when is_map(map) do
+    len = map_size(map)
+
+    if len > 3 do
+      "%{#{len} pairs}"
+    else
+      items_str =
+        Enum.map(map, fn {k, v} ->
+          if is_atom(k) do
+            "#{k}: #{compact_format(v)}"
+          else
+            "#{compact_format(k)} => #{compact_format(v)}"
+          end
+        end)
+        |> Enum.join(", ")
+
+      "%{" <> items_str <> "}"
+    end
+  end
+
+  defp compact_format(tuple) when is_tuple(tuple) do
+    len = tuple_size(tuple)
+
+    if len > 3 do
+      "{#{len} elements}"
+    else
+      items_str = Tuple.to_list(tuple) |> Enum.map(&compact_format/1) |> Enum.join(", ")
+      "{" <> items_str <> "}"
+    end
+  end
+
+  defp compact_format(other), do: inspect(other, inspect_opts())
 
   @compile {:inline, calc_total_heap_size: 1}
   defp calc_total_heap_size(info) do
