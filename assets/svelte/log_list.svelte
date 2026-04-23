@@ -251,7 +251,7 @@
   function initViewer(node, content) {
     let currentContent = content;
     const id = `log-list-${++viewerIdCounter}`;
-    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 3, defaultWordWrap: true});
+    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 2, defaultWordWrap: true});
     viewer.setContent(content || "");
     viewer.onInspect((event) => {
       if (event.type === "String") {

@@ -307,6 +307,15 @@ defmodule XTrace.Formatter do
     end
   end
 
+  defp compact_format(str) when is_binary(str) do
+    if String.valid?(str) and String.length(str) > 120 do
+      truncated = String.slice(str, 0, 117)
+      "\"#{truncated}...\""
+    else
+      inspect(str, inspect_opts())
+    end
+  end
+
   defp compact_format(other), do: inspect(other, inspect_opts())
 
   @compile {:inline, calc_total_heap_size: 1}
