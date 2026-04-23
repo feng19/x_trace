@@ -10,7 +10,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings, Terminal } from "lucide-svelte/icons";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import NodeSwitcher from "./node_switcher.svelte";
@@ -223,6 +223,27 @@
   let copied = false;
   let copyTimeout;
 
+  let recallCopied = {};
+  let recallCopyTimeout = {};
+
+  function copyRecallCli(item) {
+    if (!item.trace_info) return;
+    live.pushEvent("copy-recall-cli", { trace_info: item.trace_info }, ({ recall_cli }) => {
+      const app = new CopyClipBoard({
+        target: document.getElementById("clipboard"),
+        props: { content: recall_cli.trim() },
+      });
+      app.$destroy();
+      recallCopied[item.time] = true;
+      recallCopied = recallCopied;
+      clearTimeout(recallCopyTimeout[item.time]);
+      recallCopyTimeout[item.time] = setTimeout(() => {
+        delete recallCopied[item.time];
+        recallCopied = recallCopied;
+      }, 2000);
+    });
+  }
+
   let viewerIdCounter = 0;
   let stringDialogOpen = false;
   let stringInspectText = "";
@@ -336,13 +357,31 @@
                   <span class="text-muted-foreground">{item.pid}</span>
                 {/if}
               </div>
-              <Button variant="ghost" size="icon" class="h-7 w-7" on:click={() => copyContent(item.content)}>
-                {#if copied}
-                  <Check class="size-3.5 text-green-500" />
-                {:else}
-                  <Copy class="size-3.5" />
+              <div class="flex items-center gap-1">
+                {#if item.type === "call" && item.trace_info}
+                  <Tooltip.Root openDelay={200}>
+                    <Tooltip.Trigger asChild let:builder>
+                      <Button variant="ghost" size="icon" class="h-7 w-7" builders={[builder]} on:click={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
+                        {#if recallCopied[item.time]}
+                          <Check class="size-3.5 text-green-500" />
+                        {:else}
+                          <Terminal class="size-3.5" />
+                        {/if}
+                      </Button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content side="top" class="text-xs px-2 py-1">
+                      Copy Recall CLI
+                    </Tooltip.Content>
+                  </Tooltip.Root>
                 {/if}
-              </Button>
+                <Button variant="ghost" size="icon" class="h-7 w-7" on:click={() => copyContent(item.content)}>
+                  {#if copied}
+                    <Check class="size-3.5 text-green-500" />
+                  {:else}
+                    <Copy class="size-3.5" />
+                  {/if}
+                </Button>
+              </div>
             </div>
             {#if item._details_loading}
               <div class="text-sm text-muted-foreground">Loading details...</div>

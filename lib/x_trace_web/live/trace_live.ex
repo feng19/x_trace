@@ -26,6 +26,11 @@ defmodule XTraceWeb.TraceLive do
     {:reply, %{details: details}, socket}
   end
 
+  def handle_event("copy-recall-cli", %{"trace_info" => trace_info}, socket) do
+    content = XTrace.Formatter.format_recall_cli(trace_info)
+    {:reply, %{recall_cli: content}, socket}
+  end
+
   def handle_event("switch-node", node, socket) do
     {reply, socket} =
       try do

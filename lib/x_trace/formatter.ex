@@ -16,6 +16,22 @@ defmodule XTrace.Formatter do
     :xtrace_ignore_me
   end
 
+  def format_recall_cli(trace_info) when is_binary(trace_info) do
+    Base.decode64!(trace_info) |> :erlang.binary_to_term() |> format_recall_cli()
+  end
+
+  def format_recall_cli([{m, f, arity}]) when is_integer(arity) do
+    "#{format_module(m)}.#{f}/#{arity}"
+  end
+
+  def format_recall_cli([{m, f, args}]) do
+    arg_str =
+      Enum.map(args, &inspect(&1, width: :infinity, limit: :infinity, printable_limit: :infinity))
+      |> Enum.join(", ")
+
+    "#{format_module(m)}.#{f}(#{arg_str})"
+  end
+
   def format_details(type, trace_info) when is_binary(trace_info) do
     trace_info = Base.decode64!(trace_info) |> :erlang.binary_to_term()
 
@@ -221,7 +237,8 @@ defmodule XTrace.Formatter do
 
   defp to_unixtime(_), do: System.system_time()
 
-  @compile {:inline, format_module: 1, format_module1: 1, format_args: 1, format_pid: 1, compact_format: 1}
+  @compile {:inline,
+            format_module: 1, format_module1: 1, format_args: 1, format_pid: 1, compact_format: 1}
   defp format_module(module_atom), do: to_string(module_atom) |> format_module1()
   defp format_module1(<<"Elixir.", module_str::binary>>), do: module_str
   defp format_module1(module_str), do: ":" <> module_str
@@ -252,7 +269,9 @@ defmodule XTrace.Formatter do
     if len > 3 do
       "%#{format_module(struct_name)}{#{len} fields}"
     else
-      fields_str = Enum.map(fields, fn {k, v} -> "#{k}: #{compact_format(v)}" end) |> Enum.join(", ")
+      fields_str =
+        Enum.map(fields, fn {k, v} -> "#{k}: #{compact_format(v)}" end) |> Enum.join(", ")
+
       "%#{format_module(struct_name)}{" <> fields_str <> "}"
     end
   end
