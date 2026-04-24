@@ -4,6 +4,14 @@
   import { filterStore } from "./filter_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import { TYPE_DOT_COLORS, getDotClass } from "./log_type_colors.js";
+  import {
+    loadLogs as idbLoadLogs,
+    saveLogs as idbSaveLogs,
+    appendLog as idbAppendLog,
+    updateLog as idbUpdateLog,
+    clearLogs as idbClearLogs,
+    migrateFromLocalStorage,
+  } from "./log_idb_store.js";
   import { cn } from "$lib/utils.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
@@ -21,42 +29,25 @@
   export let node_info = {};
   export let isTracing = false;
 
-  const LOGS_STORAGE_KEY = "x-trace-logs";
-  const MAX_STORED_LOGS = 5000;
-
-  function loadLogs() {
-    try {
-      const raw = localStorage.getItem(LOGS_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (_) {}
-    return [];
-  }
-
-  let _saveTimer;
-  function saveLogs(logs) {
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(() => {
-      try {
-        // Strip transient fields and cap size
-        const toStore = logs.slice(-MAX_STORED_LOGS).map(({ _details, _details_loading, _expanded, ...rest }) => rest);
-        localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(toStore));
-      } catch (_) {}
-    }, 500);
-  }
-
-  let items = loadLogs();
-  // Restore log count on load
-  if (items.length > 0) {
-    dashboardStore.setLogCount(items.length);
-  }
+  let items = [];
 
   // Derive available types from items and push to filterStore
   $: allTypes = [...new Set(items.map(i => i.type))].sort();
   $: filterStore.setAvailableTypes(allTypes);
 
-  // Filter items by hidden types
+  // Filter items by hidden types and filter PIDs
   $: hiddenTypes = $filterStore.hiddenTypes;
-  $: visibleItems = hiddenTypes.length === 0 ? items : items.filter(i => !hiddenTypes.includes(i.type));
+  $: filterPids = $filterStore.filterPids;
+  $: visibleItems = (() => {
+    let result = items;
+    if (hiddenTypes.length > 0) {
+      result = result.filter(i => !hiddenTypes.includes(i.type));
+    }
+    if (filterPids.length > 0) {
+      result = result.filter(i => i.pid && filterPids.includes(i.pid));
+    }
+    return result;
+  })();
 
   function get_dot_class(type) {
     return getDotClass(type);
@@ -70,6 +61,7 @@
         item._details = details;
         item._details_loading = false;
         items = items;
+        idbUpdateLog(item);
       });
     }
   }
@@ -138,7 +130,16 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
+    // Migrate any existing localStorage logs to IndexedDB (one-time)
+    await migrateFromLocalStorage();
+    // Load persisted logs from IndexedDB
+    const stored = await idbLoadLogs();
+    if (stored.length > 0) {
+      items = stored;
+      dashboardStore.setLogCount(items.length);
+    }
+
     let wrapper_s = document.getElementById("logs-container-s");
     let wrapper = document.getElementById("logs-container");
 
@@ -157,12 +158,13 @@
             log._details = details;
             log._details_loading = false;
             items = items;
+            idbUpdateLog(log);
           });
         }
       }
       items = [...items, log];
       dashboardStore.updateLogCount(1);
-      saveLogs(items);
+      idbAppendLog(log, items.length);
 
       if ($dashboardStore.auto_scroll) {
         tick().then(() => {
@@ -178,7 +180,7 @@
       items = [];
       dashboardStore.setLogCount(0);
       dashboardStore.setExpandAll(false);
-      saveLogs(items);
+      idbClearLogs();
     }
 
     function onExpandAllLogs() {
@@ -251,7 +253,7 @@
       const newItems = validItems.filter((i) => !existingTimes.has(i.time));
       items = [...items, ...newItems].sort((a, b) => a.time - b.time);
       dashboardStore.setLogCount(items.length);
-      saveLogs(items);
+      idbSaveLogs(items);
     }
 
     window.addEventListener("x:clear-logs", onClearLogs);
@@ -271,10 +273,54 @@
     };
   });
 
-  function format_log(log) {
+  function format_log_time(log) {
     let time = new Date(log.time / 1000000).toLocaleTimeString();
-    let ms = Math.trunc(log.time / 1000) % 1000;
-    return time + "." + ms + " " + log.pid + " " + log.content;
+    let ms = String(Math.trunc(log.time / 1000) % 1000).padStart(3, "0");
+    return time + "." + ms;
+  }
+
+  const PID_COLORS = [
+    '#dc2626', // red
+    '#16a34a', // green
+    '#2563eb', // blue
+    '#d97706', // amber
+    '#9333ea', // purple
+    '#0891b2', // cyan
+    '#db2777', // pink
+  ];
+
+  function hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  }
+
+  function pid_color(pid) {
+    if (!pid) return 'inherit';
+    return PID_COLORS[hashString(pid) % PID_COLORS.length];
+  }
+
+  let pidCopied = {};
+  let pidCopyTimeouts = {};
+  let pidTooltipOpen = {};
+
+  function copyPid(e, key, pid) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(pid);
+    pidCopied[key] = true;
+    pidCopied = pidCopied;
+    pidTooltipOpen[key] = true;
+    pidTooltipOpen = pidTooltipOpen;
+    clearTimeout(pidCopyTimeouts[key]);
+    pidCopyTimeouts[key] = setTimeout(() => {
+      delete pidCopied[key];
+      pidCopied = pidCopied;
+      pidTooltipOpen[key] = false;
+      pidTooltipOpen = pidTooltipOpen;
+    }, 1500);
   }
 
   let copied = false;
@@ -395,7 +441,27 @@
               "text-muted-foreground text-sm",
               item._expanded ? "" : "line-clamp-4"
             )}>
-              {format_log(item)}
+              {format_log_time(item)}{" "}<Tooltip.Root bind:open={pidTooltipOpen[item.time]} openDelay={200}>
+                <Tooltip.Trigger asChild let:builder>
+                  <span
+                    use:builder.action
+                    {...builder}
+                    role="button"
+                    tabindex="-1"
+                    class="cursor-pointer font-semibold hover:underline inline-flex items-center"
+                    style="color: {pid_color(item.pid)}"
+                    on:click={(e) => copyPid(e, item.time, item.pid)}
+                    on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') copyPid(e, item.time, item.pid); }}
+                  >{item.pid}</span>
+                </Tooltip.Trigger>
+                <Tooltip.Content side="top" class="text-xs px-2 py-1">
+                  {#if pidCopied[item.time]}
+                    <span class="text-green-500">Copied!</span>
+                  {:else}
+                    Click to copy PID
+                  {/if}
+                </Tooltip.Content>
+              </Tooltip.Root>{" "}{item.content}
             </div>
           </div>
           <div class={cn(
@@ -603,11 +669,16 @@
               <div class="flex flex-col gap-3">
                 {#each $settingsLocalStorage.items as item (item.id)}
                   <button
-                    class="rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700 shadow-sm active:scale-[0.98]"
+                    class={cn(
+                      "rounded-xl border px-4 py-3 text-left transition-all shadow-sm active:scale-[0.98]",
+                      $settingsLocalStorage.selected === item.id
+                        ? "border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700"
+                        : "border-border bg-card hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700"
+                    )}
                     on:click={() => applySettings(item)}
                   >
                     <div class="flex items-center gap-3">
-                      <CirclePlay class="size-5 text-blue-600 shrink-0" />
+                      <CirclePlay class={cn("size-5 shrink-0", $settingsLocalStorage.selected === item.id ? "text-blue-700 dark:text-blue-400" : "text-blue-600")} />
                       <div class="min-w-0 flex-1">
                         <span class="truncate font-medium text-sm block">{item.name || item.t_specs}</span>
                         {#if item.saved_at}

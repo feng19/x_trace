@@ -100,6 +100,9 @@ function createFilterStore() {
     // Type filter state
     hiddenTypes: loadHiddenTypes(),
     availableTypes: [],
+    // PID filter state (session-only, not persisted)
+    // When non-empty, only show logs matching these PIDs
+    filterPids: [],
     // Search state
     searchQuery: "",
     searchTotalMatches: 0,
@@ -421,6 +424,38 @@ function createFilterStore() {
       const all = [...availableTypes];
       store.update((s) => ({ ...s, hiddenTypes: all }));
       saveHiddenTypes(all);
+    },
+
+    // ─── PID Filter API ───────────────────────────────────────────────────
+
+    /**
+     * Add a PID to the include-filter list.
+     * When filterPids is non-empty, only matching logs are shown.
+     * @param {string} pid
+     */
+    addFilterPid(pid) {
+      store.update((s) => {
+        if (s.filterPids.includes(pid)) return s;
+        return { ...s, filterPids: [...s.filterPids, pid] };
+      });
+    },
+
+    /**
+     * Remove a PID from the include-filter list.
+     * @param {string} pid
+     */
+    removeFilterPid(pid) {
+      store.update((s) => ({
+        ...s,
+        filterPids: s.filterPids.filter((p) => p !== pid),
+      }));
+    },
+
+    /**
+     * Clear all PID filters (show all PIDs again).
+     */
+    clearFilterPids() {
+      store.update((s) => ({ ...s, filterPids: [] }));
     },
 
     // ─── Search API ───────────────────────────────────────────────────────
