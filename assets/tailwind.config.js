@@ -8,7 +8,7 @@ module.exports = {
     "./js/**/*.js",
     "../lib/x_trace_web.ex",
     "../lib/x_trace_web/**/*.*ex",
-    "./svelte/**/*.{ts,svelte}"
+    "./svelte/**/*.{js,ts,svelte}"
   ],
   darkMode: ["class"],
   safelist: ["dark"],

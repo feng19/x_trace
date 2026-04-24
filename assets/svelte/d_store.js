@@ -7,7 +7,6 @@ function createStore() {
     log: null,
     log_count: 0,
     auto_scroll: true,
-    setting_tab: "trace-settings",
     expand_all: false,
     expanded_count: 0,
     setting_mode: false,
@@ -24,9 +23,6 @@ function createStore() {
         ...store,
         log_count: store.log_count + diff,
       }));
-    },
-    setSettingTab: (value) => {
-      store.update((store) => ({ ...store, setting_tab: value }));
     },
     setLog: (log) => {
       if (log) {

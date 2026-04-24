@@ -116,11 +116,11 @@
               {filterCount}
             </span>
           {/if}
-          <span class="sr-only">Filter Keys</span>
+          <span class="sr-only">FilterOut Keys</span>
         </Button>
       </Tooltip.Trigger>
       <Tooltip.Content side="bottom" class="flex items-center gap-4">
-        Filter Keys{hasFilter ? ` (${filterCount} hidden)` : ""}
+        FilterOut Keys{hasFilter ? ` (${filterCount} hidden)` : ""}
       </Tooltip.Content>
     </Tooltip.Root>
   </Popover.Trigger>
@@ -129,7 +129,7 @@
     <div class="p-3 space-y-3">
       <!-- Header -->
       <div class="flex items-center justify-between">
-        <span class="text-sm font-medium">Filter by Key</span>
+        <span class="text-sm font-medium">Filter Out by Key</span>
         {#if hasFilter}
           <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={clearAll}>
             <Eraser class="size-3 mr-1" />

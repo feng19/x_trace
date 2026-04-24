@@ -4379,7 +4379,7 @@ class dr {
         () => this.toggleSearch()
       ), this.toolbarEl.appendChild(this.searchBtn)), O.filter && (this.filterBtn = this.createToolbarButton(
         "⧩",
-        "Filter Keys",
+        "Filter Out Keys",
         () => this.toggleFilter()
       ), this.toolbarEl.appendChild(this.filterBtn)), O.foldAll) {
         const t = this.createToolbarButton("⊟", "Fold All", () => this.foldAll());
@@ -4758,7 +4758,7 @@ class dr {
   buildFilterBar() {
     this.filterBarEl = document.createElement("div"), this.filterBarEl.classList.add("edv-filter-bar");
     const O = document.createElement("div");
-    O.classList.add("edv-filter-input-wrapper"), this.filterInputEl = document.createElement("input"), this.filterInputEl.type = "text", this.filterInputEl.classList.add("edv-filter-input"), this.filterInputEl.placeholder = "Filter by key…", this.filterInputEl.addEventListener("input", () => this.onFilterInput()), this.filterInputEl.addEventListener(
+    O.classList.add("edv-filter-input-wrapper"), this.filterInputEl = document.createElement("input"), this.filterInputEl.type = "text", this.filterInputEl.classList.add("edv-filter-input"), this.filterInputEl.placeholder = "Filter out key…", this.filterInputEl.addEventListener("input", () => this.onFilterInput()), this.filterInputEl.addEventListener(
       "keydown",
       (i) => this.handleFilterKeyDown(i)
     ), this.filterInputEl.addEventListener("focus", () => this.onFilterInput()), O.appendChild(this.filterInputEl), this.filterDropdownEl = document.createElement("div"), this.filterDropdownEl.classList.add("edv-filter-dropdown"), O.appendChild(this.filterDropdownEl), this.filterBarEl.appendChild(O), this.filterTagsEl = document.createElement("div"), this.filterTagsEl.classList.add("edv-filter-tags"), this.filterBarEl.appendChild(this.filterTagsEl), this.filterInfoEl = document.createElement("span"), this.filterInfoEl.classList.add("edv-filter-info"), this.filterBarEl.appendChild(this.filterInfoEl), this.filterCopyBtn = document.createElement("button"), this.filterCopyBtn.classList.add("edv-search-nav-btn"), this.filterCopyBtn.textContent = "⎘", this.filterCopyBtn.title = "Copy Filtered Content", this.filterCopyBtn.addEventListener("click", (i) => {

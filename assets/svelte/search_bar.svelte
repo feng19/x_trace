@@ -2,6 +2,7 @@
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
   import FilterPanel from "./filter_panel.svelte";
+  import TypeFilterPanel from "./type_filter_panel.svelte";
   import {
     Eraser,
     Download,
@@ -16,8 +17,11 @@
     ChevronsUpDown,
     CaseSensitive,
     X,
+    Layers,
   } from "lucide-svelte/icons";
   import { Input } from "$lib/components/ui/input";
+  import { Checkbox } from "$lib/components/ui/checkbox";
+  import { Label } from "$lib/components/ui/label";
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";
@@ -43,6 +47,26 @@
   $: hasLogs = $dashboardStore.log_count > 0;
   $: expandAll = $dashboardStore.expand_all;
   $: hasAnyExpanded = $dashboardStore.expanded_count > 0;
+
+  // Fold level from filter store
+  $: foldLevel = $filterStore.foldLevel;
+  $: showDetailsPid = $filterStore.showDetailsPid;
+  $: showDetailsTime = $filterStore.showDetailsTime;
+
+  let foldLevelOpen = false;
+
+  function onFoldLevelSlider(e) {
+    const val = parseInt(e.target.value, 10);
+    if (!isNaN(val)) filterStore.setFoldLevel(val);
+  }
+
+  function onFoldLevelInput(e) {
+    let val = parseInt(e.target.value, 10);
+    if (isNaN(val)) return;
+    if (val < 0) val = 0;
+    if (val > 10) val = 10;
+    filterStore.setFoldLevel(val);
+  }
 
   // Search state from filter store
   $: searchQuery = $filterStore.searchQuery;
@@ -244,6 +268,76 @@
 </div>
 
 <FilterPanel />
+<TypeFilterPanel />
+
+<Popover.Root bind:open={foldLevelOpen}>
+  <Popover.Trigger asChild let:builder>
+    <Tooltip.Root openDelay={0}>
+      <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+        <Button
+          builders={[builder, tooltipBuilder]}
+          variant="ghost"
+          size="icon"
+          class="size-9 shrink-0"
+        >
+          <Layers class="size-4" aria-hidden="true" />
+          <span class="sr-only">Fold Level</span>
+        </Button>
+      </Tooltip.Trigger>
+      <Tooltip.Content side="bottom" class="flex items-center gap-4">
+        Fold Level: {foldLevel}
+      </Tooltip.Content>
+    </Tooltip.Root>
+  </Popover.Trigger>
+
+  <Popover.Content class="w-56 p-3" align="start">
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium">Fold Level</span>
+        <span class="text-xs text-muted-foreground tabular-nums">{foldLevel} / 10</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <input
+          type="range"
+          min="0"
+          max="10"
+          step="1"
+          value={foldLevel}
+          on:input={onFoldLevelSlider}
+          class="flex-1 h-2 accent-blue-600 cursor-pointer"
+        />
+        <input
+          type="number"
+          min="0"
+          max="10"
+          step="1"
+          value={foldLevel}
+          on:change={onFoldLevelInput}
+          class="w-14 h-8 rounded-md border border-input bg-background px-2 text-sm text-center tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+      </div>
+      <div class="border-t pt-3 space-y-2">
+        <span class="text-sm font-medium">Log Details</span>
+        <div class="flex items-center gap-2">
+          <Checkbox
+            id="show-details-pid"
+            checked={showDetailsPid}
+            onCheckedChange={(val) => filterStore.setShowDetailsPid(val)}
+          />
+          <Label for="show-details-pid" class="text-sm cursor-pointer">Show PID</Label>
+        </div>
+        <div class="flex items-center gap-2">
+          <Checkbox
+            id="show-details-time"
+            checked={showDetailsTime}
+            onCheckedChange={(val) => filterStore.setShowDetailsTime(val)}
+          />
+          <Label for="show-details-time" class="text-sm cursor-pointer">Show Time</Label>
+        </div>
+      </div>
+    </div>
+  </Popover.Content>
+</Popover.Root>
 
 {#if hasLogs && !expandAll}
   <Tooltip.Root openDelay={0}>
@@ -303,7 +397,7 @@
         <Tooltip.Content side="bottom" class="flex items-center gap-4">
           Clear All
           <kbd class="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-            {isMac ? "⌘⇧K" : "Ctrl+Shift+K"}
+            {isMac ? "⌘K" : "Ctrl+K"}
           </kbd>
         </Tooltip.Content>
       </Tooltip.Root>

@@ -4,11 +4,12 @@
 
   export let onClick;
   export let onRemove;
+  export let active = false;
 </script>
 
 <div
   transition:fade
-  class="inline-flex justify-between items-center gap-1 rounded border border-dashed border-border bg-background px-2 py-1 text-sm"
+  class="inline-flex justify-between items-center gap-1 rounded border border-dashed px-2 py-1 text-sm {active ? 'border-primary bg-primary/10' : 'border-border bg-background'}"
 >
   <button on:click={onClick}>
     <slot />

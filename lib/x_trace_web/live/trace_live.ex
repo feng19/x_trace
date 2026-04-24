@@ -3,7 +3,7 @@ defmodule XTraceWeb.TraceLive do
   use XTraceWeb, :live_view
   require Logger
   import XTrace.FormatHelper
-  alias XTrace.{IoServer, NodeHelper, NodeListener, TraceHelper, Validator}
+  alias XTrace.{IoServer, NodeHelper, NodeListener, SpecParser, TraceHelper, Validator}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -137,8 +137,6 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("import-tspecs", %{"raw" => raw}, socket) do
-    alias XTrace.SpecParser
-
     with {:ok, new_specs} <- SpecParser.parse(raw),
          :ok <- SpecParser.check_banned_mods(new_specs) do
       %{t_specs: t_specs, ljtrace_settings: trace_settings} = socket.assigns
@@ -187,11 +185,17 @@ defmodule XTraceWeb.TraceLive do
     socket =
       case Validator.validate_rate_limiting(max, milliseconds) do
         {:ok, rate_limiting} ->
-          %{ljtrace_settings: trace_settings} = socket.assigns
+          %{
+            t_specs: t_specs,
+            pids: pids,
+            ljtrace_settings: trace_settings,
+            ljoptions_settings: options_settings
+          } = socket.assigns
 
           socket
           |> LiveJson.push_patch("rate_limiting", rate_limiting)
           |> update_cli(%{trace_settings | max: format_rate_limiting(rate_limiting)})
+          |> save_curr_settings(t_specs, rate_limiting, options_settings, pids)
 
         {:error, error} ->
           put_notice(socket, :warning, error)
@@ -203,7 +207,13 @@ defmodule XTraceWeb.TraceLive do
   def handle_event("set-scope", scope, socket) do
     scope = String.to_existing_atom(scope)
 
-    %{ljoptions_settings: options_settings, ljtrace_settings: trace_settings, pids: pids} =
+    %{
+      t_specs: t_specs,
+      pids: pids,
+      ljrate_limiting: rate_limiting,
+      ljoptions_settings: options_settings,
+      ljtrace_settings: trace_settings
+    } =
       socket.assigns
 
     options_settings = %{options_settings | scope: scope}
@@ -212,6 +222,7 @@ defmodule XTraceWeb.TraceLive do
       socket
       |> LiveJson.push_patch("options_settings", options_settings)
       |> update_cli(%{trace_settings | options: format_options(options_settings, pids)})
+      |> save_curr_settings(t_specs, rate_limiting, options_settings, pids)
 
     {:noreply, socket}
   end
@@ -310,6 +321,15 @@ defmodule XTraceWeb.TraceLive do
     socket =
       default_assigns(socket, node_info, &LiveJson.push_patch/3)
       |> push_event("update_store", %{setting_tab: "trace-settings"})
+
+    %{
+      t_specs: t_specs,
+      pids: pids,
+      ljrate_limiting: rate_limiting,
+      ljoptions_settings: options_settings
+    } = socket.assigns
+
+    socket = save_curr_settings(socket, t_specs, rate_limiting, options_settings, pids)
 
     {:noreply, socket}
   end
@@ -497,6 +517,7 @@ defmodule XTraceWeb.TraceLive do
       t_specs: t_specs,
       pids: pids,
       ljop_status: op_status,
+      ljrate_limiting: rate_limiting,
       ljoptions_settings: options_settings
     } = socket.assigns
 
@@ -508,12 +529,25 @@ defmodule XTraceWeb.TraceLive do
         _ -> enable
       end
 
-    LiveJson.push_patch(socket, "op_status", %{
-      op_status
-      | start_trace: enable,
-        save_settings: enable,
-        reset_settings: enable
-    })
+    socket =
+      LiveJson.push_patch(socket, "op_status", %{
+        op_status
+        | start_trace: enable,
+          save_settings: enable,
+          reset_settings: enable
+      })
+
+    save_curr_settings(socket, t_specs, rate_limiting, options_settings, pids)
+  end
+
+  defp save_curr_settings(socket, t_specs, rate_limiting, options_settings, pids) do
+    max = rate_limiting_to_max(rate_limiting)
+    options = settings_to_options(options_settings, pids)
+
+    encoded =
+      :erlang.term_to_binary(%{t_specs: t_specs, max: max, options: options}) |> Base.encode64()
+
+    push_event(socket, "save-curr-settings", %{encoded: encoded})
   end
 
   defp settings_to_options(options_settings, pids) do

@@ -3,6 +3,7 @@
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
+  import { TYPE_DOT_COLORS, getDotClass } from "./log_type_colors.js";
   import { cn } from "$lib/utils.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
@@ -10,7 +11,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings, Terminal } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings, Terminal, Download, Trash2 } from "lucide-svelte/icons";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import NodeSwitcher from "./node_switcher.svelte";
@@ -18,6 +19,7 @@
 
   export let live;
   export let node_info = {};
+  export let isTracing = false;
 
   const LOGS_STORAGE_KEY = "x-trace-logs";
   const MAX_STORED_LOGS = 5000;
@@ -48,30 +50,16 @@
     dashboardStore.setLogCount(items.length);
   }
 
-  const TYPE_DOT_COLORS = {
-    call:          "bg-blue-600 dark:bg-blue-800",
-    return_to:     "bg-blue-300 dark:bg-blue-600",
-    return_from:   "bg-cyan-400 dark:bg-cyan-200",
-    exception_from:"bg-red-500 dark:bg-red-400",
-    send:          "bg-violet-500 dark:bg-violet-400",
-    send_to_non_existing_process: "bg-violet-300 dark:bg-violet-600",
-    receive:       "bg-indigo-500 dark:bg-indigo-400",
-    spawn:         "bg-green-500 dark:bg-green-400",
-    exit:          "bg-rose-500 dark:bg-rose-400",
-    link:          "bg-amber-500 dark:bg-amber-400",
-    unlink:        "bg-amber-300 dark:bg-amber-600",
-    getting_linked:   "bg-amber-500 dark:bg-amber-400",
-    getting_unlinked: "bg-amber-300 dark:bg-amber-600",
-    register:      "bg-teal-500 dark:bg-teal-400",
-    unregister:    "bg-teal-300 dark:bg-teal-600",
-    in:            "bg-gray-500 dark:bg-gray-400",
-    out:           "bg-gray-400 dark:bg-gray-500",
-    gc_start:      "bg-orange-500 dark:bg-orange-400",
-    gc_end:        "bg-orange-300 dark:bg-orange-600",
-  };
+  // Derive available types from items and push to filterStore
+  $: allTypes = [...new Set(items.map(i => i.type))].sort();
+  $: filterStore.setAvailableTypes(allTypes);
+
+  // Filter items by hidden types
+  $: hiddenTypes = $filterStore.hiddenTypes;
+  $: visibleItems = hiddenTypes.length === 0 ? items : items.filter(i => !hiddenTypes.includes(i.type));
 
   function get_dot_class(type) {
-    return TYPE_DOT_COLORS[type] || "bg-secondary";
+    return getDotClass(type);
   }
 
   function loadDetailsForItem(item) {
@@ -86,9 +74,76 @@
     }
   }
 
+  function handleKeyNavigation(e) {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    if (!$dashboardStore.selected) return;
+
+    // Don't interfere when focus is on input elements
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+    e.preventDefault();
+
+    const currentIndex = visibleItems.findIndex((item) => item.time === $dashboardStore.selected);
+    if (currentIndex === -1) return;
+
+    const nextIndex = e.key === "ArrowUp" ? currentIndex - 1 : currentIndex + 1;
+    if (nextIndex < 0 || nextIndex >= visibleItems.length) return;
+
+    const currentItem = visibleItems[currentIndex];
+    const nextItem = visibleItems[nextIndex];
+
+    // Collapse current
+    if (currentItem._expanded) {
+      currentItem._expanded = false;
+      dashboardStore.updateExpandedCount(-1);
+    }
+
+    // Expand next
+    nextItem._expanded = true;
+    dashboardStore.updateExpandedCount(1);
+    dashboardStore.setLog(nextItem);
+    loadDetailsForItem(nextItem);
+    items = items;
+
+    // Scroll into view
+    tick().then(() => {
+      const el = document.querySelector(`[data-log-time="${nextItem.time}"]`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+
+  function handleCopyShortcut(e) {
+    // Only handle Cmd+C (Mac) or Ctrl+C (non-Mac)
+    if (!(e.key === "c" && (e.metaKey || e.ctrlKey))) return;
+    if (!$dashboardStore.selected) return;
+
+    // Don't interfere when focus is on input elements
+    const tag = document.activeElement?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+    // Don't interfere when user has text selected on the page
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) return;
+
+    const selectedItem = visibleItems.find((item) => item.time === $dashboardStore.selected);
+    if (!selectedItem) return;
+
+    e.preventDefault();
+
+    if (selectedItem.type === "call" && selectedItem.trace_info) {
+      copyRecallCli(selectedItem);
+    } else {
+      copyContent(selectedItem.content);
+    }
+  }
+
   onMount(() => {
     let wrapper_s = document.getElementById("logs-container-s");
     let wrapper = document.getElementById("logs-container");
+
+    window.addEventListener("keydown", handleKeyNavigation);
+    window.addEventListener("keydown", handleCopyShortcut);
 
     live.handleEvent("add-log", (log) => {
       console.log(log);
@@ -206,6 +261,8 @@
     window.addEventListener("x:import-logs", onImportLogs);
 
     return () => {
+      window.removeEventListener("keydown", handleKeyNavigation);
+      window.removeEventListener("keydown", handleCopyShortcut);
       window.removeEventListener("x:clear-logs", onClearLogs);
       window.removeEventListener("x:expand-all-logs", onExpandAllLogs);
       window.removeEventListener("x:collapse-all-logs", onCollapseAllLogs);
@@ -251,7 +308,8 @@
   function initViewer(node, content) {
     let currentContent = content;
     const id = `log-list-${++viewerIdCounter}`;
-    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: 2, defaultWordWrap: true});
+    const foldLevel = filterStore.getFoldLevel();
+    const viewer = new ElixirDataViewer(node, {defaultFoldLevel: foldLevel, defaultWordWrap: true});
     viewer.setContent(content || "");
     viewer.onInspect((event) => {
       if (event.type === "String") {
@@ -311,11 +369,11 @@
 
 <div class="grid grid-cols-1 relative z-0">
   <div id="logs-container" class="p-1 flex flex-col gap-0 mb-6">
-    {#each items as item (item.time)}
-      <div in:fade out:blur>
+    {#each visibleItems as item (item.time)}
+      <div in:fade out:blur data-log-time={item.time}>
         <button
           class={cn(
-            "w-full rounded-md py-1.5 px-2 text-left text-sm transition-all",
+            "group w-full rounded-md py-1.5 px-2 text-left text-sm transition-all relative",
             $dashboardStore.selected === item.time ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700" : "hover:bg-accent"
           )}
           on:click={() => toggleLog(item)}
@@ -340,49 +398,54 @@
               {format_log(item)}
             </div>
           </div>
+          <div class={cn(
+            "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
+            $dashboardStore.selected === item.time ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}>
+            {#if item.type === "call" && item.trace_info}
+              <Tooltip.Root openDelay={200}>
+                <Tooltip.Trigger asChild let:builder>
+                  <Button variant="ghost" size="icon" class="h-7 w-7" builders={[builder]} on:click={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
+                    {#if recallCopied[item.time]}
+                      <Check class="size-3.5 text-green-500" />
+                    {:else}
+                      <Terminal class="size-3.5" />
+                    {/if}
+                  </Button>
+                </Tooltip.Trigger>
+                <Tooltip.Content side="top" class="text-xs px-2 py-1">
+                  Copy Recall CLI
+                </Tooltip.Content>
+              </Tooltip.Root>
+            {/if}
+            <Button variant="ghost" size="icon" class="h-7 w-7" on:click={(e) => { e.stopPropagation(); copyContent(item.content); }}>
+              {#if copied}
+                <Check class="size-3.5 text-green-500" />
+              {:else}
+                <Copy class="size-3.5" />
+              {/if}
+            </Button>
+          </div>
         </button>
-        {#if item._expanded}
+        {#if item._expanded && !(item.type === "io" && !$filterStore.showDetailsTime)}
           <div transition:slide={{ duration: 200 }} class={cn(
             "rounded-b-md px-3 pt-1.5 pb-2 -mt-0.5 ml-2 mr-2",
             $dashboardStore.selected === item.time
               ? "border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30"
               : "bg-muted/30"
           )}>
-            <div class="flex items-center justify-between mb-1">
-              <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                <span class="font-semibold text-foreground">Time</span>
-                <span class="text-muted-foreground">{new Date(item.time / 1000000).toLocaleString()}.{Math.trunc(item.time / 1000) % 1000}</span>
-                {#if item.pid}
+            {#if $filterStore.showDetailsTime || ($filterStore.showDetailsPid && item.pid)}
+              <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 mb-1">
+                {#if $filterStore.showDetailsTime}
+                  <span class="font-semibold text-foreground">Time</span>
+                  <span class="text-muted-foreground">{new Date(item.time / 1000000).toLocaleString()}.{Math.trunc(item.time / 1000) % 1000}</span>
+                {/if}
+                {#if $filterStore.showDetailsPid && item.pid}
                   <span class="font-semibold text-foreground">PID</span>
                   <span class="text-muted-foreground">{item.pid}</span>
                 {/if}
               </div>
-              <div class="flex items-center gap-1">
-                {#if item.type === "call" && item.trace_info}
-                  <Tooltip.Root openDelay={200}>
-                    <Tooltip.Trigger asChild let:builder>
-                      <Button variant="ghost" size="icon" class="h-7 w-7" builders={[builder]} on:click={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
-                        {#if recallCopied[item.time]}
-                          <Check class="size-3.5 text-green-500" />
-                        {:else}
-                          <Terminal class="size-3.5" />
-                        {/if}
-                      </Button>
-                    </Tooltip.Trigger>
-                    <Tooltip.Content side="top" class="text-xs px-2 py-1">
-                      Copy Recall CLI
-                    </Tooltip.Content>
-                  </Tooltip.Root>
-                {/if}
-                <Button variant="ghost" size="icon" class="h-7 w-7" on:click={() => copyContent(item.content)}>
-                  {#if copied}
-                    <Check class="size-3.5 text-green-500" />
-                  {:else}
-                    <Copy class="size-3.5" />
-                  {/if}
-                </Button>
-              </div>
-            </div>
+            {/if}
             {#if item._details_loading}
               <div class="text-sm text-muted-foreground">Loading details...</div>
             {:else if item._details}
@@ -393,6 +456,27 @@
       </div>
     {/each}
     <div id="last-log-container"></div>
+
+    {#if !isTracing && items.length > 0}
+      <div class="flex items-center gap-3 ml-4 p-2" transition:fade>
+        <Button
+          variant="outline"
+          class="gap-2"
+          on:click={() => window.dispatchEvent(new CustomEvent("x:download-logs"))}
+        >
+          <Download class="size-4" />
+          Download Logs
+        </Button>
+        <Button
+          variant="outline"
+          class="gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400"
+          on:click={() => window.dispatchEvent(new CustomEvent("x:clear-logs"))}
+        >
+          <Trash2 class="size-4" />
+          Clear Logs
+        </Button>
+      </div>
+    {/if}
   </div>
 
   {#if items.length == 0}
@@ -555,3 +639,4 @@
 </div>
 
 <StringInspectDialog bind:open={stringDialogOpen} rawString={stringInspectText} />
+

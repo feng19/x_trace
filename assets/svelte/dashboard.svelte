@@ -50,9 +50,9 @@
   live.handleEvent("update_store", onUpdateStore);
 
   onMount(() => {
-    // Global keyboard shortcut: Cmd+Shift+K (Mac) / Ctrl+Shift+K (PC) to clear logs
+    // Global keyboard shortcut: Cmd+K (Mac) / Ctrl+K (PC) to clear logs
     function onKeyDown(e) {
-      if (e.shiftKey && (e.metaKey || e.ctrlKey) && e.key === "K") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("x:clear-logs"));
       }
@@ -70,8 +70,10 @@
 
     settingsLocalStorage.load();
     live.handleEvent("save-settings", (item) => {
-      dashboardStore.setSettingTab("local-settings");
-      settingsLocalStorage.append(item);
+      // If a local storage item is currently selected (applied), overwrite it
+      if (!settingsLocalStorage.updateSelected(item)) {
+        settingsLocalStorage.append(item);
+      }
     });
 
     // after user select settings file
@@ -81,7 +83,6 @@
         let input = event.target;
         if (input.files.length) {
           console.log("import settings files:", input.files);
-          dashboardStore.setSettingTab("local-settings");
           settingsLocalStorage.import_file(input.files[0]);
         }
         input.value = "";
@@ -253,7 +254,7 @@
       {#if $dashboardStore.setting_mode}
         <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} {op_status} />
       {:else}
-        <LogList {live} {node_info} />
+        <LogList {live} {node_info} {isTracing} />
       {/if}
       <input
         type="file"

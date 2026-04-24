@@ -1,6 +1,10 @@
 import { writable, get } from "svelte/store";
 
 const STORAGE_KEY = "x-trace-filter-keys";
+const FOLD_LEVEL_STORAGE_KEY = "x-trace-fold-level";
+const SHOW_DETAILS_PID_KEY = "x-trace-show-details-pid";
+const SHOW_DETAILS_TIME_KEY = "x-trace-show-details-time";
+const HIDDEN_TYPES_STORAGE_KEY = "x-trace-hidden-types";
 
 function loadFilteredKeys() {
   try {
@@ -13,6 +17,65 @@ function loadFilteredKeys() {
 function saveFilteredKeys(keys) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+  } catch (_) {}
+}
+
+function loadFoldLevel() {
+  try {
+    const raw = localStorage.getItem(FOLD_LEVEL_STORAGE_KEY);
+    if (raw !== null) {
+      const val = parseInt(raw, 10);
+      if (!isNaN(val) && val >= 0 && val <= 10) return val;
+    }
+  } catch (_) {}
+  return 2; // default fold level
+}
+
+function saveFoldLevel(level) {
+  try {
+    localStorage.setItem(FOLD_LEVEL_STORAGE_KEY, String(level));
+  } catch (_) {}
+}
+
+function loadShowDetailsPid() {
+  try {
+    const raw = localStorage.getItem(SHOW_DETAILS_PID_KEY);
+    if (raw !== null) return raw === "true";
+  } catch (_) {}
+  return false; // default: not shown
+}
+
+function saveShowDetailsPid(val) {
+  try {
+    localStorage.setItem(SHOW_DETAILS_PID_KEY, String(val));
+  } catch (_) {}
+}
+
+function loadShowDetailsTime() {
+  try {
+    const raw = localStorage.getItem(SHOW_DETAILS_TIME_KEY);
+    if (raw !== null) return raw === "true";
+  } catch (_) {}
+  return false; // default: not shown
+}
+
+function saveShowDetailsTime(val) {
+  try {
+    localStorage.setItem(SHOW_DETAILS_TIME_KEY, String(val));
+  } catch (_) {}
+}
+
+function loadHiddenTypes() {
+  try {
+    const raw = localStorage.getItem(HIDDEN_TYPES_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return [];
+}
+
+function saveHiddenTypes(types) {
+  try {
+    localStorage.setItem(HIDDEN_TYPES_STORAGE_KEY, JSON.stringify(types));
   } catch (_) {}
 }
 
@@ -29,6 +92,14 @@ function createFilterStore() {
   const store = writable({
     filteredKeys: loadFilteredKeys(),
     availableKeys: [],
+    // Fold level state
+    foldLevel: loadFoldLevel(),
+    // Details display toggles
+    showDetailsPid: loadShowDetailsPid(),
+    showDetailsTime: loadShowDetailsTime(),
+    // Type filter state
+    hiddenTypes: loadHiddenTypes(),
+    availableTypes: [],
     // Search state
     searchQuery: "",
     searchTotalMatches: 0,
@@ -166,12 +237,16 @@ function createFilterStore() {
       viewers.set(id, viewer);
       rebuildAvailableKeys();
       // Apply current filter to the new viewer
-      const { filteredKeys } = get(store);
+      const { filteredKeys, foldLevel } = get(store);
       if (filteredKeys.length > 0) {
         try {
           viewer.setFilterKeys(filteredKeys);
         } catch (_) {}
       }
+      // Apply current fold level
+      try {
+        viewer.foldToLevel(foldLevel);
+      } catch (_) {}
       // Apply current search to the new viewer
       applySearchToViewer(viewer);
       recalcSearchMatches();
@@ -198,12 +273,16 @@ function createFilterStore() {
       viewers.set(id, viewer);
       rebuildAvailableKeys();
       // Re-apply filter to updated viewer
-      const { filteredKeys } = get(store);
+      const { filteredKeys, foldLevel } = get(store);
       if (filteredKeys.length > 0) {
         try {
           viewer.setFilterKeys(filteredKeys);
         } catch (_) {}
       }
+      // Re-apply fold level
+      try {
+        viewer.foldToLevel(foldLevel);
+      } catch (_) {}
       // Re-apply search to updated viewer
       applySearchToViewer(viewer);
       recalcSearchMatches();
@@ -254,6 +333,94 @@ function createFilterStore() {
      */
     getViewerCount() {
       return viewers.size;
+    },
+
+    /**
+     * Set fold level for all registered viewers.
+     * @param {number} level - Fold level (0–10).
+     */
+    setFoldLevel(level) {
+      const clamped = Math.max(0, Math.min(10, level));
+      store.update((s) => ({ ...s, foldLevel: clamped }));
+      saveFoldLevel(clamped);
+      withScrollPreserved(() => {
+        for (const viewer of viewers.values()) {
+          try {
+            viewer.foldToLevel(clamped);
+          } catch (_) {}
+        }
+      });
+    },
+
+    /**
+     * Get the current fold level.
+     */
+    getFoldLevel() {
+      return get(store).foldLevel;
+    },
+
+    /**
+     * Toggle whether PID is shown in log details.
+     * @param {boolean} val
+     */
+    setShowDetailsPid(val) {
+      store.update((s) => ({ ...s, showDetailsPid: val }));
+      saveShowDetailsPid(val);
+    },
+
+    /**
+     * Toggle whether Time is shown in log details.
+     * @param {boolean} val
+     */
+    setShowDetailsTime(val) {
+      store.update((s) => ({ ...s, showDetailsTime: val }));
+      saveShowDetailsTime(val);
+    },
+
+    // ─── Type Filter API ──────────────────────────────────────────────────
+
+    /**
+     * Update the list of available types (derived from log items).
+     * @param {string[]} types - Sorted unique type strings.
+     */
+    setAvailableTypes(types) {
+      store.update((s) => ({ ...s, availableTypes: types }));
+    },
+
+    /**
+     * Toggle a type's visibility. If currently hidden, show it; if visible, hide it.
+     * @param {string} type
+     */
+    toggleType(type) {
+      store.update((s) => {
+        const idx = s.hiddenTypes.indexOf(type);
+        let updated;
+        if (idx >= 0) {
+          updated = s.hiddenTypes.filter((t) => t !== type);
+        } else {
+          updated = [...s.hiddenTypes, type];
+        }
+        saveHiddenTypes(updated);
+        return { ...s, hiddenTypes: updated };
+      });
+    },
+
+    /**
+     * Show all types (clear hiddenTypes).
+     */
+    showAllTypes() {
+      store.update((s) => ({ ...s, hiddenTypes: [] }));
+      saveHiddenTypes([]);
+    },
+
+    /**
+     * Hide all types (set hiddenTypes to all availableTypes).
+     */
+    hideAllTypes() {
+      const { availableTypes } = get(store);
+      const all = [...availableTypes];
+      store.update((s) => ({ ...s, hiddenTypes: all }));
+      saveHiddenTypes(all);
     },
 
     // ─── Search API ───────────────────────────────────────────────────────
