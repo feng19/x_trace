@@ -19,7 +19,8 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings, Terminal, Download, Trash2 } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings, Terminal, Download, Trash2, X, CheckSquare, Square } from "lucide-svelte/icons";
+  import { Checkbox } from "$lib/components/ui/checkbox";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import NodeSwitcher from "./node_switcher.svelte";
@@ -30,6 +31,51 @@
   export let isTracing = false;
 
   let items = [];
+
+  // Selection mode
+  $: selectingMode = $dashboardStore.selecting_mode;
+  $: selectedLogTimes = $dashboardStore.selected_log_times;
+  $: selectedCount = selectedLogTimes.size;
+  $: allVisibleSelected = visibleItems.length > 0 && visibleItems.every(i => selectedLogTimes.has(i.time));
+
+  function toggleSelectItem(e, item) {
+    e.stopPropagation();
+    dashboardStore.toggleLogSelection(item.time);
+  }
+
+  function selectAll() {
+    dashboardStore.selectAllLogs(visibleItems.map(i => i.time));
+  }
+
+  function deselectAll() {
+    dashboardStore.deselectAllLogs();
+  }
+
+  function cancelSelecting() {
+    dashboardStore.setSelectingMode(false);
+  }
+
+  function downloadSelectedLogsAction() {
+    const selectedItems = items.filter(i => selectedLogTimes.has(i.time));
+    if (selectedItems.length === 0) return;
+
+    const exportItems = selectedItems.map(({ _details, _details_loading, _expanded, ...rest }) => rest);
+    const content = JSON.stringify(exportItems, null, 2);
+    const file = new Blob([content], { type: "application/json" });
+    const link = document.createElement("a");
+    const now = new Date();
+    const ts = now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, "0") +
+      String(now.getDate()).padStart(2, "0") + "_" +
+      String(now.getHours()).padStart(2, "0") +
+      String(now.getMinutes()).padStart(2, "0") +
+      String(now.getSeconds()).padStart(2, "0");
+    link.href = URL.createObjectURL(file);
+    link.download = `xtrace_selected_${ts}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    dashboardStore.setSelectingMode(false);
+  }
 
   // Derive available types from items and push to filterStore
   $: allTypes = [...new Set(items.map(i => i.type))].sort();
@@ -256,11 +302,16 @@
       idbSaveLogs(items);
     }
 
+    function onDownloadSelectedLogs() {
+      downloadSelectedLogsAction();
+    }
+
     window.addEventListener("x:clear-logs", onClearLogs);
     window.addEventListener("x:expand-all-logs", onExpandAllLogs);
     window.addEventListener("x:collapse-all-logs", onCollapseAllLogs);
     window.addEventListener("x:download-logs", onDownloadLogs);
     window.addEventListener("x:import-logs", onImportLogs);
+    window.addEventListener("x:download-selected-logs", onDownloadSelectedLogs);
 
     return () => {
       window.removeEventListener("keydown", handleKeyNavigation);
@@ -270,6 +321,7 @@
       window.removeEventListener("x:collapse-all-logs", onCollapseAllLogs);
       window.removeEventListener("x:download-logs", onDownloadLogs);
       window.removeEventListener("x:import-logs", onImportLogs);
+      window.removeEventListener("x:download-selected-logs", onDownloadSelectedLogs);
     };
   });
 
@@ -414,17 +466,58 @@
 </script>
 
 <div class="grid grid-cols-1 relative z-0">
+  {#if selectingMode}
+    <div class="sticky top-[53px] z-40 bg-blue-50 dark:bg-blue-950/50 border-b border-blue-200 dark:border-blue-800 px-3 py-2 flex items-center gap-3">
+      <span class="text-sm font-medium text-blue-700 dark:text-blue-300">
+        {selectedCount} selected
+      </span>
+      <button
+        class="text-xs px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400"
+        on:click={allVisibleSelected ? deselectAll : selectAll}
+      >
+        {allVisibleSelected ? "Deselect All" : "Select All"}
+      </button>
+      <div class="flex-1"></div>
+      <Button
+        variant="outline"
+        size="sm"
+        class="gap-1.5"
+        disabled={selectedCount === 0}
+        on:click={downloadSelectedLogsAction}
+      >
+        <Download class="size-3.5" />
+        Download ({selectedCount})
+      </Button>
+      <Button variant="ghost" size="sm" class="gap-1.5" on:click={cancelSelecting}>
+        <X class="size-3.5" />
+        Cancel
+      </Button>
+    </div>
+  {/if}
   <div id="logs-container" class="p-1 flex flex-col gap-0 mb-6">
     {#each visibleItems as item (item.time)}
       <div in:fade out:blur data-log-time={item.time}>
         <button
           class={cn(
             "group w-full rounded-md py-1.5 px-2 text-left text-sm transition-all relative",
-            $dashboardStore.selected === item.time ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700" : "hover:bg-accent"
+            selectingMode && selectedLogTimes.has(item.time)
+              ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700"
+              : !selectingMode && $dashboardStore.selected === item.time
+                ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700"
+                : "hover:bg-accent"
           )}
-          on:click={() => toggleLog(item)}
+          on:click={(e) => selectingMode ? toggleSelectItem(e, item) : toggleLog(item)}
         >
           <div class="flex items-start gap-2">
+            {#if selectingMode}
+              <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+              <span class="shrink-0 mt-0.5 flex items-center" on:click|stopPropagation>
+                <Checkbox
+                  checked={selectedLogTimes.has(item.time)}
+                  onCheckedChange={() => dashboardStore.toggleLogSelection(item.time)}
+                />
+              </span>
+            {/if}
             <Tooltip.Root openDelay={200}>
               <Tooltip.Trigger asChild let:builder>
                 <span
@@ -439,7 +532,7 @@
             </Tooltip.Root>
             <div class={cn(
               "text-muted-foreground text-sm",
-              item._expanded ? "" : "line-clamp-4"
+              selectingMode ? "line-clamp-2" : (item._expanded ? "" : "line-clamp-4")
             )}>
               {format_log_time(item)}{" "}<Tooltip.Root bind:open={pidTooltipOpen[item.time]} openDelay={200}>
                 <Tooltip.Trigger asChild let:builder>
@@ -450,8 +543,8 @@
                     tabindex="-1"
                     class="cursor-pointer font-semibold hover:underline inline-flex items-center"
                     style="color: {pid_color(item.pid)}"
-                    on:click={(e) => copyPid(e, item.time, item.pid)}
-                    on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') copyPid(e, item.time, item.pid); }}
+                    on:click={(e) => { if (!selectingMode) copyPid(e, item.time, item.pid); }}
+                    on:keydown={(e) => { if (!selectingMode && (e.key === 'Enter' || e.key === ' ')) copyPid(e, item.time, item.pid); }}
                   >{item.pid}</span>
                 </Tooltip.Trigger>
                 <Tooltip.Content side="top" class="text-xs px-2 py-1">
@@ -464,36 +557,38 @@
               </Tooltip.Root>{" "}{item.content}
             </div>
           </div>
-          <div class={cn(
-            "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
-            $dashboardStore.selected === item.time ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-          )}>
-            {#if item.type === "call" && item.trace_info}
-              <Tooltip.Root openDelay={200}>
-                <Tooltip.Trigger asChild let:builder>
-                  <Button variant="ghost" size="icon" class="h-7 w-7" builders={[builder]} on:click={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
-                    {#if recallCopied[item.time]}
-                      <Check class="size-3.5 text-green-500" />
-                    {:else}
-                      <Terminal class="size-3.5" />
-                    {/if}
-                  </Button>
-                </Tooltip.Trigger>
-                <Tooltip.Content side="top" class="text-xs px-2 py-1">
-                  Copy Recall CLI
-                </Tooltip.Content>
-              </Tooltip.Root>
-            {/if}
-            <Button variant="ghost" size="icon" class="h-7 w-7" on:click={(e) => { e.stopPropagation(); copyContent(item.content); }}>
-              {#if copied}
-                <Check class="size-3.5 text-green-500" />
-              {:else}
-                <Copy class="size-3.5" />
+          {#if !selectingMode}
+            <div class={cn(
+              "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
+              $dashboardStore.selected === item.time ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            )}>
+              {#if item.type === "call" && item.trace_info}
+                <Tooltip.Root openDelay={200}>
+                  <Tooltip.Trigger asChild let:builder>
+                    <Button variant="ghost" size="icon" class="h-7 w-7" builders={[builder]} on:click={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
+                      {#if recallCopied[item.time]}
+                        <Check class="size-3.5 text-green-500" />
+                      {:else}
+                        <Terminal class="size-3.5" />
+                      {/if}
+                    </Button>
+                  </Tooltip.Trigger>
+                  <Tooltip.Content side="top" class="text-xs px-2 py-1">
+                    Copy Recall CLI
+                  </Tooltip.Content>
+                </Tooltip.Root>
               {/if}
-            </Button>
-          </div>
+              <Button variant="ghost" size="icon" class="h-7 w-7" on:click={(e) => { e.stopPropagation(); copyContent(item.content); }}>
+                {#if copied}
+                  <Check class="size-3.5 text-green-500" />
+                {:else}
+                  <Copy class="size-3.5" />
+                {/if}
+              </Button>
+            </div>
+          {/if}
         </button>
-        {#if item._expanded && !(item.type === "io" && !$filterStore.showDetailsTime)}
+        {#if !selectingMode && item._expanded && !(item.type === "io" && !$filterStore.showDetailsTime)}
           <div transition:slide={{ duration: 200 }} class={cn(
             "rounded-b-md px-3 pt-1.5 pb-2 -mt-0.5 ml-2 mr-2",
             $dashboardStore.selected === item.time
@@ -532,6 +627,14 @@
         >
           <Download class="size-4" />
           Download Logs
+        </Button>
+        <Button
+          variant="outline"
+          class="gap-2"
+          on:click={() => window.dispatchEvent(new CustomEvent("x:download-logs", { detail: { format: "json" } }))}
+        >
+          <Download class="size-4" />
+          Download JSON
         </Button>
         <Button
           variant="outline"

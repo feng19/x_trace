@@ -18,6 +18,7 @@
     CaseSensitive,
     X,
     Layers,
+    MousePointerClick,
   } from "lucide-svelte/icons";
   import { Input } from "$lib/components/ui/input";
   import { Checkbox } from "$lib/components/ui/checkbox";
@@ -41,6 +42,17 @@
 
   let downloadOpen = false;
   let clearConfirmOpen = false;
+
+  $: selectingMode = $dashboardStore.selecting_mode;
+
+  function startSelectingMode() {
+    downloadOpen = false;
+    dashboardStore.setSelectingMode(true);
+  }
+
+  function cancelSelectingMode() {
+    dashboardStore.setSelectingMode(false);
+  }
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
@@ -134,6 +146,10 @@
   function downloadLogs(format) {
     downloadOpen = false;
     window.dispatchEvent(new CustomEvent("x:download-logs", { detail: { format } }));
+  }
+
+  function downloadSelectedLogs() {
+    window.dispatchEvent(new CustomEvent("x:download-selected-logs"));
   }
 
   function importLogs() {
@@ -436,7 +452,7 @@
         </Tooltip.Content>
       </Tooltip.Root>
     </Popover.Trigger>
-    <Popover.Content class="w-48 p-1" align="end">
+    <Popover.Content class="w-56 p-1" align="end">
       <button
         class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
         on:click={() => downloadLogs("text")}
@@ -450,6 +466,14 @@
       >
         <FileJson class="size-4" />
         JSON (.json)
+      </button>
+      <div class="my-1 h-px bg-border"></div>
+      <button
+        class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        on:click={startSelectingMode}
+      >
+        <MousePointerClick class="size-4" />
+        Select & Download (.json)
       </button>
     </Popover.Content>
   </Popover.Root>

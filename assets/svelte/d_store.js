@@ -10,6 +10,8 @@ function createStore() {
     expand_all: false,
     expanded_count: 0,
     setting_mode: false,
+    selecting_mode: false,
+    selected_log_times: new Set(),
   });
 
   return {
@@ -59,6 +61,36 @@ function createStore() {
     },
     setSettingMode: (value) => {
       store.update((s) => ({ ...s, setting_mode: value }));
+    },
+    setSelectingMode: (value) => {
+      store.update((s) => ({
+        ...s,
+        selecting_mode: value,
+        selected_log_times: value ? s.selected_log_times : new Set(),
+      }));
+    },
+    toggleLogSelection: (time) => {
+      store.update((s) => {
+        const next = new Set(s.selected_log_times);
+        if (next.has(time)) {
+          next.delete(time);
+        } else {
+          next.add(time);
+        }
+        return { ...s, selected_log_times: next };
+      });
+    },
+    selectAllLogs: (times) => {
+      store.update((s) => ({
+        ...s,
+        selected_log_times: new Set(times),
+      }));
+    },
+    deselectAllLogs: () => {
+      store.update((s) => ({
+        ...s,
+        selected_log_times: new Set(),
+      }));
     },
   };
 }
