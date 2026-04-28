@@ -1,5 +1,6 @@
 <script>
   import { onMount, tick } from "svelte";
+  import { toast } from "svelte-sonner";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
@@ -283,16 +284,18 @@
     function onImportLogs(e) {
       const importedItems = e.detail?.items;
       if (!Array.isArray(importedItems)) return;
-
       const validItems = importedItems.filter(
-        (item) =>
-          item &&
+        (item) => {
+          return item &&
           typeof item.time === "number" &&
           typeof item.type === "string" &&
-          typeof item.content === "string"
+          typeof item.content === "string";
+        }
       );
-
-      if (validItems.length === 0) return;
+      if (validItems.length === 0) {
+        toast.warning("Import failed: no valid log items found in the file.");
+        return;
+      }
 
       // Deduplicate by time, then sort chronologically
       const existingTimes = new Set(items.map((i) => i.time));
@@ -410,7 +413,7 @@
     const viewer = new ElixirDataViewer(node, {defaultFoldLevel: foldLevel, defaultWordWrap: true});
     viewer.setContent(content || "");
     viewer.onInspect((event) => {
-      if (event.type === "String") {
+      if (event.type === "String" && event.copyText.length >= 150) {
         event.preventDefault();
         stringInspectText = event.copyText;
         stringDialogOpen = true;

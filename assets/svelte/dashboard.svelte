@@ -100,6 +100,7 @@
           reader.onload = function () {
             try {
               let importedItems = JSON.parse(this.result);
+              dashboardStore.setSettingMode(false); // switch to log view so user sees imported logs
               window.dispatchEvent(
                 new CustomEvent("x:import-logs", { detail: { items: importedItems } })
               );
@@ -253,9 +254,10 @@
 
       {#if $dashboardStore.setting_mode}
         <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} {op_status} />
-      {:else}
-        <LogList {live} {node_info} {isTracing} />
       {/if}
+      <div class:hidden={$dashboardStore.setting_mode}>
+        <LogList {live} {node_info} {isTracing} />
+      </div>
       <input
         type="file"
         id="upload-setting-input"
