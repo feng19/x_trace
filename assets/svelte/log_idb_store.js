@@ -12,7 +12,6 @@ const DB_NAME = "x-trace-db";
 const DB_VERSION = 1;
 const STORE_NAME = "logs";
 const MAX_STORED_LOGS = 1500;
-const LEGACY_STORAGE_KEY = "x-trace-logs";
 
 /** @type {IDBDatabase | null} */
 let _db = null;
@@ -246,27 +245,3 @@ export async function clearLogs() {
   }
 }
 
-/**
- * One-time migration: move logs from localStorage to IndexedDB,
- * then remove the localStorage key so this won't run again.
- * @returns {Promise<void>}
- */
-export async function migrateFromLocalStorage() {
-  try {
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (!raw) return; // Nothing to migrate
-
-    const logs = JSON.parse(raw);
-    if (Array.isArray(logs) && logs.length > 0) {
-      await saveLogs(logs);
-    }
-
-    // Remove legacy key so migration doesn't run again
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
-    console.log(`Migrated ${logs.length} logs from localStorage to IndexedDB`);
-  } catch (err) {
-    console.error("Migration from localStorage failed:", err);
-    // Still try to remove the key to avoid repeated failures
-    try { localStorage.removeItem(LEGACY_STORAGE_KEY); } catch (_) {}
-  }
-}

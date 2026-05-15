@@ -6,7 +6,7 @@ export const TYPE_DOT_COLORS = {
   call:          "bg-blue-600 dark:bg-blue-800",
   return_to:     "bg-blue-300 dark:bg-blue-600",
   return_from:   "bg-cyan-400 dark:bg-cyan-200",
-  exception_from:"bg-red-500 dark:bg-red-400",
+  exception_from:"bg-red-600 dark:bg-red-800",
   send:          "bg-violet-500 dark:bg-violet-400",
   send_to_non_existing_process: "bg-violet-300 dark:bg-violet-600",
   receive:       "bg-indigo-500 dark:bg-indigo-400",

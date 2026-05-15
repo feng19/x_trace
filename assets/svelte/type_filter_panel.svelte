@@ -10,6 +10,8 @@
 
   let open = false;
   let pidInputValue = "";
+  let mfaInputValue = "";
+  let mfaDropdownIndex = -1;
 
   // Type filter
   $: hiddenTypes = $filterStore.hiddenTypes;
@@ -23,8 +25,19 @@
   $: filterPidCount = filterPids.length;
   $: hasFilterPids = filterPidCount > 0;
 
+  // MFA filter
+  $: filterMfas = $filterStore.filterMfas;
+  $: availableMfas = $filterStore.availableMfas;
+  $: filterMfaCount = filterMfas.length;
+  $: hasFilterMfas = filterMfaCount > 0;
+
+  // MFA dropdown items: available MFAs minus already-filtered, filtered by input text
+  $: mfaDropdownItems = availableMfas.filter(
+    (m) => !filterMfas.includes(m) && (mfaInputValue === "" || m.toLowerCase().includes(mfaInputValue.toLowerCase()))
+  );
+
   // Combined count for badge
-  $: totalFilterCount = hiddenTypeCount + filterPidCount;
+  $: totalFilterCount = hiddenTypeCount + filterPidCount + filterMfaCount;
   $: hasAnyFilter = totalFilterCount > 0;
 
   function isTypeChecked(type) {
@@ -66,6 +79,58 @@
       addPid();
     } else if (e.key === "Backspace" && pidInputValue === "" && filterPids.length > 0) {
       removePid(filterPids[filterPids.length - 1]);
+    }
+  }
+
+  function selectMfa(mfa) {
+    filterStore.addFilterMfa(mfa);
+    mfaInputValue = "";
+    mfaDropdownIndex = -1;
+  }
+
+  function removeMfa(mfa) {
+    filterStore.removeFilterMfa(mfa);
+  }
+
+  function clearMfas() {
+    filterStore.clearFilterMfas();
+    mfaInputValue = "";
+    mfaDropdownIndex = -1;
+  }
+
+  function onMfaInput() {
+    mfaDropdownIndex = -1;
+  }
+
+  function handleMfaKeyDown(e) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (mfaDropdownItems.length > 0) {
+        mfaDropdownIndex = Math.min(mfaDropdownIndex + 1, mfaDropdownItems.length - 1);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (mfaDropdownIndex > 0) {
+        mfaDropdownIndex = mfaDropdownIndex - 1;
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (mfaDropdownIndex >= 0 && mfaDropdownIndex < mfaDropdownItems.length) {
+        selectMfa(mfaDropdownItems[mfaDropdownIndex]);
+      } else if (mfaInputValue.trim()) {
+        // Try exact match (case-insensitive)
+        const match = availableMfas.find(
+          (m) => m.toLowerCase() === mfaInputValue.trim().toLowerCase()
+        );
+        if (match && !filterMfas.includes(match)) {
+          selectMfa(match);
+        }
+      }
+    } else if (e.key === "Backspace" && mfaInputValue === "" && filterMfas.length > 0) {
+      removeMfa(filterMfas[filterMfas.length - 1]);
     }
   }
 </script>
@@ -184,6 +249,68 @@
       {:else}
         <div class="text-xs text-muted-foreground">
           No PID filter — showing all
+        </div>
+      {/if}
+
+      <!-- Separator -->
+      <div class="border-t"></div>
+
+      <!-- MFA Section Header -->
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium">MFA</span>
+        {#if hasFilterMfas}
+          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={clearMfas}>
+            Clear
+          </Button>
+        {/if}
+      </div>
+
+      <!-- MFA input with dropdown and tags -->
+      <div class="relative">
+        <div class="flex flex-wrap items-center gap-1 rounded-md border border-input bg-background px-2 py-1.5 min-h-[36px]">
+          {#each filterMfas as mfa (mfa)}
+            <Badge variant="secondary" class="gap-1 pl-2 pr-1 py-0.5 text-xs font-mono">
+              {mfa}
+              <button
+                class="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5 leading-none"
+                on:click|stopPropagation={() => removeMfa(mfa)}
+              >
+                ✕
+              </button>
+            </Badge>
+          {/each}
+          <input
+            bind:value={mfaInputValue}
+            on:input={onMfaInput}
+            on:keydown={handleMfaKeyDown}
+            class="flex-1 min-w-[60px] bg-transparent text-sm outline-none placeholder:text-muted-foreground font-mono"
+            placeholder={filterMfas.length === 0 ? "Filter by MFA…" : "Add MFA…"}
+          />
+        </div>
+
+        <!-- MFA Dropdown -->
+        {#if open && mfaInputValue && mfaDropdownItems.length > 0}
+          <div class="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+            {#each mfaDropdownItems as item, i (item)}
+              <button
+                class="w-full px-3 py-1.5 text-sm text-left font-mono hover:bg-accent hover:text-accent-foreground {i === mfaDropdownIndex ? 'bg-accent text-accent-foreground' : ''}"
+                on:mousedown|preventDefault={() => selectMfa(item)}
+              >
+                {item}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
+      <!-- MFA Info -->
+      {#if hasFilterMfas}
+        <div class="text-xs text-muted-foreground">
+          Showing only {filterMfaCount} MFA{filterMfaCount > 1 ? "s" : ""}
+        </div>
+      {:else}
+        <div class="text-xs text-muted-foreground">
+          No MFA filter — showing all
         </div>
       {/if}
     </div>

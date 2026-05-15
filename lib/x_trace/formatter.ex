@@ -1,19 +1,19 @@
 defmodule XTrace.Formatter do
-  @moduledoc false
-  alias XTrace.IoServer
+  @moduledoc """
+  Formats raw Erlang trace tuples into structured maps for the UI.
 
-  @spec format(trace_msg :: tuple) :: iodata
+  Pure formatting — no PubSub, no process coupling.
+  Broadcasting is handled by `XTrace.Session`.
+  """
+
+  @doc """
+  Format a raw trace message tuple into a structured map.
+
+  Returns `%{time: integer, type: atom, trace_info: binary, pid: binary, content: binary}`.
+  """
+  @spec format(trace_msg :: tuple) :: map()
   def format(trace_msg) do
-    msg = extract_info(trace_msg)
-    Phoenix.PubSub.broadcast(XTrace.PubSub, IoServer.topic(), {:trace_msg, msg})
-    :xtrace_ignore_me
-  end
-
-  @spec remote_format(io_server :: pid, trace_msg :: tuple) :: iodata
-  def remote_format(io_server, trace_msg) do
-    msg = extract_info(trace_msg)
-    send(io_server, {:xtrace_msg, msg})
-    :xtrace_ignore_me
+    extract_info(trace_msg)
   end
 
   def format_recall_cli(trace_info) when is_binary(trace_info) do
@@ -93,10 +93,16 @@ defmodule XTrace.Formatter do
       {:out, [0]} ->
         [info: :scheduled_out]
 
-      {:gc_start, [info]} ->
+      {:gc_minor_start, [info]} ->
         [info: info]
 
-      {:gc_end, [info]} ->
+      {:gc_minor_end, [info]} ->
+        [info: info]
+
+      {:gc_major_start, [info]} ->
+        [info: info]
+
+      {:gc_major_end, [info]} ->
         [info: info]
 
       {_type, info} ->
@@ -114,10 +120,12 @@ defmodule XTrace.Formatter do
       [:trace_ts, pid, type | info] ->
         {trace_info, [timestamp]} = :lists.split(:erlang.length(info) - 1, info)
         content = format_body(type, trace_info)
+        mfa = extract_mfa(type, trace_info)
 
         %{
           time: to_unixtime(timestamp),
           type: type,
+          mfa: mfa,
           trace_info: encode_trace_info(trace_info),
           pid: format_pid(pid),
           content: content
@@ -125,14 +133,26 @@ defmodule XTrace.Formatter do
 
       [:trace, pid, type | trace_info] ->
         content = format_body(type, trace_info)
+        mfa = extract_mfa(type, trace_info)
 
         %{
           time: System.system_time(),
           type: type,
+          mfa: mfa,
           trace_info: encode_trace_info(trace_info),
           pid: format_pid(pid),
           content: content
         }
+    end
+  end
+
+  defp extract_mfa(type, trace_info) do
+    case {type, trace_info} do
+      {:call, [{m, f, args}]} -> "#{inspect(m)}.#{f}/#{length(args)}"
+      {:return_to, [{m, f, arity}]} -> "#{inspect(m)}.#{f}/#{arity}"
+      {:return_from, [{m, f, arity}, _return]} -> "#{inspect(m)}.#{f}/#{arity}"
+      {:exception_from, [{m, f, arity}, {_class, _val}]} -> "#{inspect(m)}.#{f}/#{arity}"
+      _ -> nil
     end
   end
 
@@ -219,12 +239,20 @@ defmodule XTrace.Formatter do
     "scheduled out"
   end
 
-  defp format_body(:gc_start, [info]) do
+  defp format_body(:gc_minor_start, [info]) do
     "gc beginning -- heap #{calc_total_heap_size(info)} bytes"
   end
 
-  defp format_body(:gc_end, [info]) do
+  defp format_body(:gc_minor_end, [info]) do
     "gc finished -- heap #{calc_total_heap_size(info)} bytes"
+  end
+
+  defp format_body(:gc_major_start, [info]) do
+    "gc fullsweep beginning -- heap #{calc_total_heap_size(info)} bytes"
+  end
+
+  defp format_body(:gc_major_end, [info]) do
+    "gc fullsweep finished -- heap #{calc_total_heap_size(info)} bytes"
   end
 
   defp format_body(type, trace_info) do
@@ -237,8 +265,7 @@ defmodule XTrace.Formatter do
 
   defp to_unixtime(_), do: System.system_time()
 
-  @compile {:inline,
-            format_module: 1, format_module1: 1, format_args: 1, format_pid: 1, compact_format: 1}
+  @compile {:inline, format_module: 1, format_module1: 1, format_args: 1, format_pid: 1, compact_format: 1}
   defp format_module(module_atom), do: to_string(module_atom) |> format_module1()
   defp format_module1(<<"Elixir.", module_str::binary>>), do: module_str
   defp format_module1(module_str), do: ":" <> module_str
@@ -320,17 +347,13 @@ defmodule XTrace.Formatter do
 
   @compile {:inline, calc_total_heap_size: 1}
   defp calc_total_heap_size(info) do
-    info[:heap_size] + info[:old_heap_size] + info[:mbuf_size]
+    Keyword.get(info, :heap_size, 0) +
+      Keyword.get(info, :old_heap_size, 0) +
+      Keyword.get(info, :mbuf_size, 0)
   end
 
   @compile {:inline, inspect_opts: 0}
   defp inspect_opts do
-    opts = Application.get_env(:extrace, :inspect_opts, pretty: true)
-
-    if :recon_map.is_active() do
-      [{:inspect_fun, &Extrace.MapLimiter.limit_inspect/2} | opts]
-    else
-      opts
-    end
+    Application.get_env(:x_trace, :inspect_opts, pretty: true)
   end
 end

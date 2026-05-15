@@ -1,6 +1,5 @@
 defmodule XTrace.Validator do
   @moduledoc false
-  alias XTrace.TraceHelper
 
   def validate_rate_limiting(max, milliseconds) do
     case check_integer(max) do
@@ -37,12 +36,12 @@ defmodule XTrace.Validator do
   end
 
   def validate_pid(pid, node_info) do
-    pid = :recon_lib.term_to_pid("<#{pid}>")
+    pid = :erlang.list_to_pid(~c"<#{pid}>")
 
     if node_info.is_self do
       Process.alive?(pid)
     else
-      TraceHelper.call(node_info.connected_node, :erlang, :is_process_alive, [pid])
+      :rpc.call(node_info.connected_node, :erlang, :is_process_alive, [pid])
     end
     |> if do
       {:ok, pid}

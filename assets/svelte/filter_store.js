@@ -103,6 +103,10 @@ function createFilterStore() {
     // PID filter state (session-only, not persisted)
     // When non-empty, only show logs matching these PIDs
     filterPids: [],
+    // MFA filter state (session-only, not persisted)
+    // When non-empty, only show logs matching these MFAs
+    filterMfas: [],
+    availableMfas: [],
     // Search state
     searchQuery: "",
     searchTotalMatches: 0,
@@ -456,6 +460,46 @@ function createFilterStore() {
      */
     clearFilterPids() {
       store.update((s) => ({ ...s, filterPids: [] }));
+    },
+
+    // ─── MFA Filter API ──────────────────────────────────────────────────
+
+    /**
+     * Update the list of available MFAs (derived from log items).
+     * @param {string[]} mfas - Sorted unique MFA strings.
+     */
+    setAvailableMfas(mfas) {
+      store.update((s) => ({ ...s, availableMfas: mfas }));
+    },
+
+    /**
+     * Add an MFA to the include-filter list.
+     * When filterMfas is non-empty, only matching logs are shown.
+     * @param {string} mfa
+     */
+    addFilterMfa(mfa) {
+      store.update((s) => {
+        if (s.filterMfas.includes(mfa)) return s;
+        return { ...s, filterMfas: [...s.filterMfas, mfa] };
+      });
+    },
+
+    /**
+     * Remove an MFA from the include-filter list.
+     * @param {string} mfa
+     */
+    removeFilterMfa(mfa) {
+      store.update((s) => ({
+        ...s,
+        filterMfas: s.filterMfas.filter((m) => m !== mfa),
+      }));
+    },
+
+    /**
+     * Clear all MFA filters (show all MFAs again).
+     */
+    clearFilterMfas() {
+      store.update((s) => ({ ...s, filterMfas: [] }));
     },
 
     // ─── Search API ───────────────────────────────────────────────────────

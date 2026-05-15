@@ -42,14 +42,11 @@
     <div class="font-bold flex items-center gap-1 whitespace-nowrap">
       <span>Code mode</span>
       <InfoHover>
-        <pre
-          class="text-wrap">The runtime system can be started in either embedded or interactive mode.</pre>
-        <br />
-        <pre
-          class="text-wrap">In embedded mode, all code is loaded during system start-up according to the boot script.</pre>
-        <br />
-        <pre
-          class="text-wrap">In interactive mode, code is dynamically loaded when first referenced.</pre>
+        <div class="space-y-2 text-sm">
+          <p>The runtime system can be started in either embedded or interactive mode.</p>
+          <p><strong>Embedded</strong> — all code is loaded during system start-up according to the boot script.</p>
+          <p><strong>Interactive</strong> — code is dynamically loaded when first referenced.</p>
+        </div>
       </InfoHover>
     </div>
     <div>
@@ -73,7 +70,6 @@
       tSpecs={trace_settings.t_specs}
       max={trace_settings.max}
       options={trace_settings.options}
-      cli={trace_settings.cli}
       compact
     />
   </div>
@@ -86,5 +82,4 @@
   tSpecs={trace_settings.t_specs}
   max={trace_settings.max}
   options={trace_settings.options}
-  cli={trace_settings.cli}
 />

@@ -3,7 +3,6 @@
   import { toast } from "svelte-sonner";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
-  import { settingsLocalStorage } from "./settings_local_storage.js";
   import { TYPE_DOT_COLORS, getDotClass } from "./log_type_colors.js";
   import {
     loadLogs as idbLoadLogs,
@@ -11,21 +10,18 @@
     appendLog as idbAppendLog,
     updateLog as idbUpdateLog,
     clearLogs as idbClearLogs,
-    migrateFromLocalStorage,
   } from "./log_idb_store.js";
   import { cn } from "$lib/utils.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
-  import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, Copy, Check, FileUp, Play, Settings, Terminal, Download, Trash2, X, CheckSquare, Square } from "lucide-svelte/icons";
+  import { Copy, Check, Play, Terminal, Download, Trash2, X, CheckSquare, Square, ListFilter } from "lucide-svelte/icons";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
-  import NodeSwitcher from "./node_switcher.svelte";
   import StringInspectDialog from "$lib/components/string_inspect_dialog.svelte";
+  import Welcome from "./welcome.svelte";
 
   export let live;
   export let node_info = {};
@@ -82,9 +78,14 @@
   $: allTypes = [...new Set(items.map(i => i.type))].sort();
   $: filterStore.setAvailableTypes(allTypes);
 
-  // Filter items by hidden types and filter PIDs
+  // Derive available MFAs from items and push to filterStore
+  $: allMfas = [...new Set(items.map(i => i.mfa).filter(Boolean))].sort();
+  $: filterStore.setAvailableMfas(allMfas);
+
+  // Filter items by hidden types, filter PIDs, and filter MFAs
   $: hiddenTypes = $filterStore.hiddenTypes;
   $: filterPids = $filterStore.filterPids;
+  $: filterMfas = $filterStore.filterMfas;
   $: visibleItems = (() => {
     let result = items;
     if (hiddenTypes.length > 0) {
@@ -92,6 +93,9 @@
     }
     if (filterPids.length > 0) {
       result = result.filter(i => i.pid && filterPids.includes(i.pid));
+    }
+    if (filterMfas.length > 0) {
+      result = result.filter(i => i.mfa && filterMfas.includes(i.mfa));
     }
     return result;
   })();
@@ -178,8 +182,6 @@
   }
 
   onMount(async () => {
-    // Migrate any existing localStorage logs to IndexedDB (one-time)
-    await migrateFromLocalStorage();
     // Load persisted logs from IndexedDB
     const stored = await idbLoadLogs();
     if (stored.length > 0) {
@@ -192,6 +194,8 @@
 
     window.addEventListener("keydown", handleKeyNavigation);
     window.addEventListener("keydown", handleCopyShortcut);
+    window.addEventListener("click", closeContextMenu);
+    window.addEventListener("keydown", handleContextMenuKeydown);
 
     live.handleEvent("add-log", (log) => {
       console.log(log);
@@ -319,6 +323,8 @@
     return () => {
       window.removeEventListener("keydown", handleKeyNavigation);
       window.removeEventListener("keydown", handleCopyShortcut);
+      window.removeEventListener("click", closeContextMenu);
+      window.removeEventListener("keydown", handleContextMenuKeydown);
       window.removeEventListener("x:clear-logs", onClearLogs);
       window.removeEventListener("x:expand-all-logs", onExpandAllLogs);
       window.removeEventListener("x:collapse-all-logs", onCollapseAllLogs);
@@ -356,6 +362,35 @@
   function pid_color(pid) {
     if (!pid) return 'inherit';
     return PID_COLORS[hashString(pid) % PID_COLORS.length];
+  }
+
+  // Context menu state for right-click on PID
+  let contextMenu = { show: false, x: 0, y: 0, pid: null };
+
+  function showContextMenu(e, pid) {
+    if (!pid || selectingMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenu = { show: true, x: e.clientX, y: e.clientY, pid };
+  }
+
+  function closeContextMenu() {
+    if (contextMenu.show) {
+      contextMenu = { ...contextMenu, show: false };
+    }
+  }
+
+  function filterByPid() {
+    if (contextMenu.pid) {
+      filterStore.addFilterPid(contextMenu.pid);
+    }
+    closeContextMenu();
+  }
+
+  function handleContextMenuKeydown(e) {
+    if (e.key === "Escape" && contextMenu.show) {
+      closeContextMenu();
+    }
   }
 
   let pidCopied = {};
@@ -462,10 +497,6 @@
     items = items;
   }
 
-  function applySettings(item) {
-    settingsLocalStorage.select(item.id);
-    live.pushEvent("apply-settings", item.encoded);
-  }
 </script>
 
 <div class="grid grid-cols-1 relative z-0">
@@ -547,6 +578,7 @@
                     class="cursor-pointer font-semibold hover:underline inline-flex items-center"
                     style="color: {pid_color(item.pid)}"
                     on:click={(e) => { if (!selectingMode) copyPid(e, item.time, item.pid); }}
+                    on:contextmenu={(e) => showContextMenu(e, item.pid)}
                     on:keydown={(e) => { if (!selectingMode && (e.key === 'Enter' || e.key === ' ')) copyPid(e, item.time, item.pid); }}
                   >{item.pid}</span>
                 </Tooltip.Trigger>
@@ -647,173 +679,39 @@
           <Trash2 class="size-4" />
           Clear Logs
         </Button>
+        <Button
+          variant="outline"
+          class="gap-2 text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400"
+          on:click={() => live.pushEvent("start-trace", {})}
+        >
+          <Play class="size-4" />
+          Start Trace
+        </Button>
       </div>
     {/if}
   </div>
 
   {#if items.length == 0}
-    <div class="flex flex-col items-center px-4" in:fade out:blur>
-      <!-- Links -->
-      <div
-        class="mb-6 flex gap-4 items-center text-center text-sm text-muted-foreground"
-      >
-        <Button
-          variant="link"
-          class="space-x-2"
-          href="/dashboard"
-          target="_blank"
-        >
-          <Gauge class="size-4" />
-          <span>Dashboard</span>
-        </Button>
-        <Button
-          variant="link"
-          class="space-x-2"
-          href="https://hexdocs.pm/recon/recon_trace.html"
-          target="_blank"
-        >
-          <BookOpen class="size-4" />
-          <span>Document</span>
-        </Button>
-        <Button
-          variant="link"
-          class="space-x-2"
-          href="https://github.com/feng19"
-          target="_blank"
-        >
-          <Signature class="size-4" />
-          <span>Author: feng19</span>
-        </Button>
-        <Button
-          variant="link"
-          class="space-x-2"
-          href="https://github.com/feng19/x_trace"
-          target="_blank"
-        >
-          <ExternalLink class="size-4" />
-          <span>Github</span>
-        </Button>
-      </div>
-
-      <!-- Two-column: Description left, Settings right -->
-      <div class="flex gap-8 justify-center">
-        <!-- Left: Description -->
-        <div>
-          <pre class="text-sm text-muted-foreground">
-  Tracing Elixir and Erlang Code
-
-  The Erlang Trace BIFs allow to trace any Elixir and Erlang code at
-  all. They work in two parts: pid specifications, and trace patterns.
-
-  Pid specifications let you decide which processes to target. They
-  can be specific pids, `all` pids, `existing` pids, or `new` pids
-  (those not spawned at the time of the function call).
-
-  The trace patterns represent functions. Functions can be specified
-  in two parts: specifying the modules, functions, and arguments, and
-  then with Erlang match specifications to add constraints to
-  arguments (see `calls/3` for details).
-
-  What defines whether you get traced or not is the intersection of
-  both:
-
-      .       _,--------,_      _,--------,_
-           ,-'            `-,,-'            `-,
-        ,-'              ,-'  '-,              `-,
-       |   Matching    -'        '-   Matching    |
-       |     Pids     |  Getting   |    Trace     |
-       |              |   Traced   |  Patterns    |
-       |               -,        ,-               |
-        '-,              '-,  ,-'              ,-'
-           '-,_          _,-''-,_          _,-'
-               '--------'        '--------'
-
-  If either the pid specification excludes a process or a trace
-  pattern excludes a given call, no trace will be received.
-
-  !! Go to [Trace Settings] start & trace. !!
-  </pre>
-        </div>
-
-        <!-- Right: Actions & Local Storage Settings -->
-        <div class="w-72 shrink-0 flex flex-col gap-6">
-          <!-- Node Switcher -->
-          {#if node_info?.node_list?.length > 1}
-            <div>
-              <div class="text-sm font-semibold text-muted-foreground mb-3">Switch Node</div>
-              <NodeSwitcher {live} nodeList={node_info.node_list} selectedNode={node_info.connected_node} />
-            </div>
-            <Separator class="my-0" />
-          {/if}
-
-          <div class="flex flex-col gap-3">
-            <!-- Import JSON Logs -->
-            <Button
-              variant="outline"
-              class="w-full justify-center gap-2"
-              on:click={() => document.getElementById("upload-log-input").click()}
-            >
-              <FileUp class="size-4" />
-              Import JSON Logs
-            </Button>
-
-            <!-- Import Settings -->
-            <Button
-              variant="outline"
-              class="w-full justify-center gap-2"
-              on:click={() => document.getElementById("upload-setting-input").click()}
-            >
-              <Settings class="size-4" />
-              Import Settings
-            </Button>
-          </div>
-
-          <!-- Saved Settings -->
-          {#if $settingsLocalStorage.items.length > 0}
-            <div>
-              <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
-              <div class="flex flex-col gap-3">
-                {#each $settingsLocalStorage.items as item (item.id)}
-                  <button
-                    class={cn(
-                      "rounded-xl border px-4 py-3 text-left transition-all shadow-sm active:scale-[0.98]",
-                      $settingsLocalStorage.selected === item.id
-                        ? "border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700"
-                        : "border-border bg-card hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700"
-                    )}
-                    on:click={() => applySettings(item)}
-                  >
-                    <div class="flex items-center gap-3">
-                      <CirclePlay class={cn("size-5 shrink-0", $settingsLocalStorage.selected === item.id ? "text-blue-700 dark:text-blue-400" : "text-blue-600")} />
-                      <div class="min-w-0 flex-1">
-                        <span class="truncate font-medium text-sm block">{item.name || item.t_specs}</span>
-                        {#if item.saved_at}
-                          <span class="text-xs text-muted-foreground">Saved: {new Date(item.saved_at).toLocaleString()}</span>
-                        {/if}
-                      </div>
-                    </div>
-                  </button>
-                {/each}
-              </div>
-            </div>
-
-            <!-- Start Trace -->
-            <div>
-              <Button
-                variant="outline"
-                class="w-full justify-center gap-2 text-red-600"
-                on:click={() => live.pushEvent("start-trace", {})}
-              >
-                <Play class="size-4" />
-                Start Trace
-              </Button>
-            </div>
-          {/if}
-        </div>
-      </div>
-    </div>
+    <Welcome {live} {node_info} />
   {/if}
 </div>
 
 <StringInspectDialog bind:open={stringDialogOpen} rawString={stringInspectText} />
+
+{#if contextMenu.show}
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <div
+    class="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+    style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
+    on:click|stopPropagation
+  >
+    <button
+      class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+      on:click={filterByPid}
+    >
+      <ListFilter class="size-3.5" />
+      Filter by PID <span class="ml-auto text-xs text-muted-foreground font-mono">{contextMenu.pid}</span>
+    </button>
+  </div>
+{/if}
 

@@ -4,6 +4,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import Switch from "$lib/components/switch.svelte";
   import ItemWithX from "$lib/components/item_with_x.svelte";
+  import InfoHover from "$lib/components/info_hover.svelte";
   import { Plus, X } from "lucide-svelte/icons";
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
@@ -25,6 +26,18 @@
     { value: "pid", label: "pid" },
   ];
 
+  const scope_descriptions = {
+    local: "All types of function calls, including local calls within a module.",
+    global: "Only exported functions match and only global calls generate trace messages.",
+  };
+
+  const pid_descriptions = {
+    all: "All currently existing processes and all that will be created in the future.",
+    new: "All processes that will be created in the future.",
+    existing: "All currently existing processes.",
+    pid: "Specific process identifiers (pids).",
+  };
+
   function removePid(index) {
     live.pushEvent("del-pid", { index });
   }
@@ -33,23 +46,70 @@
 <div class="px-1 sm:px-2 space-y-4">
   <div class="flex flex-col gap-3 sm:gap-4">
     <div>
-      <Label for="options_scope" class="mb-1.5 block text-xs sm:text-sm">Fun Scope</Label>
+      <div class="mb-1.5 flex items-center gap-1">
+        <Label for="options_scope" class="text-xs sm:text-sm">Function Scope</Label>
+        <InfoHover>
+          <p class="text-sm font-medium mb-1">Function Scope</p>
+          <p class="text-xs text-muted-foreground mb-2">
+            Determines which function calls are traced:
+          </p>
+          <ul class="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+            <li><strong>global</strong> — Only exported functions match and only global calls generate trace messages.</li>
+            <li><strong>local</strong> — All types of function calls, including local calls within a module.</li>
+          </ul>
+          <a
+            href="https://www.erlang.org/doc/apps/kernel/trace.html#function/4"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-xs text-blue-500 hover:underline mt-2 inline-block"
+          >
+            Erlang Docs: trace:function/4
+          </a>
+        </InfoHover>
+      </div>
       <Switch
         id="options_scope"
         items={scope_items}
         value={scope}
         onValueChange={(value) => live.pushEvent("set-scope", value)}
       />
+      {#if scope_descriptions[scope]}
+        <p class="mt-1 text-xs text-muted-foreground">{scope_descriptions[scope]}</p>
+      {/if}
     </div>
 
     <div>
-      <Label for="options_pid" class="mb-1.5 block text-xs sm:text-sm">Match Pids</Label>
+      <div class="mb-1.5 flex items-center gap-1">
+        <Label for="options_pid" class="text-xs sm:text-sm">Match Pids</Label>
+        <InfoHover>
+          <p class="text-sm font-medium mb-1">Argument Procs</p>
+          <p class="text-xs text-muted-foreground mb-2">
+            Either a list of process identifier (pids) for local processes or one of the following atoms:
+          </p>
+          <ul class="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+            <li><strong>all</strong> — All currently existing processes and all that will be created in the future.</li>
+            <li><strong>existing</strong> — All currently existing processes.</li>
+            <li><strong>new</strong> — All processes that will be created in the future.</li>
+          </ul>
+          <a
+            href="https://www.erlang.org/doc/apps/kernel/trace.html#process/4"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-xs text-blue-500 hover:underline mt-2 inline-block"
+          >
+            Erlang Docs: trace:process/4
+          </a>
+        </InfoHover>
+      </div>
       <Switch
         id="options_pid"
         items={pid_items}
         value={pid}
         onValueChange={(value) => live.pushEvent("set-pid", value)}
       />
+      {#if pid_descriptions[pid]}
+        <p class="mt-1 text-xs text-muted-foreground">{pid_descriptions[pid]}</p>
+      {/if}
     </div>
   </div>
 

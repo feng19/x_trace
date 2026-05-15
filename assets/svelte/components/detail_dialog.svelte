@@ -8,7 +8,6 @@
   export let tSpecs = [];
   export let max = "";
   export let options = "";
-  export let cli = "";
   export let name = "";
   export let savedAt = "";
 </script>
@@ -30,7 +29,7 @@
     </Dialog.Header>
 
     <div class="flex-1 max-h-[80vh] 2xl:max-h-[85vh] overflow-y-auto pr-2">
-      <SettingsDisplay {tSpecs} {max} {options} {cli} />
+      <SettingsDisplay {tSpecs} {max} {options} />
     </div>
   </Dialog.Content>
 </Dialog.Root>

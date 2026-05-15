@@ -41,7 +41,7 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-config :extrace, :inspect_opts, pretty: true, limit: :infinity
+config :x_trace, :inspect_opts, pretty: true, limit: :infinity
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

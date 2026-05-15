@@ -11,12 +11,18 @@ defmodule XTrace.SpecParser do
       {Enum, :map, :return_trace}
       {Enum, :map, 2}
 
-      # Capture syntax (auto-generates match spec with return_trace)
+      # Capture syntax (auto-generates match spec with return_trace + exception_trace)
       &Enum.map/2
+
+      # Shorthand: same as &Enum.map/2
+      Enum.map/2
+
+      # Shorthand: matches any arity with return_trace + exception_trace
+      Enum.map
   """
 
   @type tspec :: {module(), atom(), atom() | non_neg_integer() | list()}
-  @banned_mods ~w(recon_trace io lists)
+  @banned_mods ~w(_ XTrace.Trace io lists trace)
 
   @doc """
   Parses a raw string into a list of tspec tuples.
@@ -90,9 +96,20 @@ defmodule XTrace.SpecParser do
   # Capture syntax: &Mod.fun/arity
   defp convert_one({:&, _, [{:/, _, [{{:., _, [mod_ast, fun]}, _, []}, arity]}]})
        when is_atom(fun) and is_integer(arity) and arity >= 0 do
+    convert_fun_arity(mod_ast, fun, arity)
+  end
+
+  # Shorthand syntax: Mod.fun/arity (same as &Mod.fun/arity)
+  defp convert_one({:/, _, [{{:., _, [mod_ast, fun]}, _, []}, arity]})
+       when is_atom(fun) and is_integer(arity) and arity >= 0 do
+    convert_fun_arity(mod_ast, fun, arity)
+  end
+
+  # Shorthand syntax: Mod.fun (any arity with return_trace + exception_trace)
+  defp convert_one({{:., _, [mod_ast, fun]}, _, []}) when is_atom(fun) do
     case resolve_module(mod_ast) do
       {:ok, mod} ->
-        match_spec = [{List.duplicate(:_, arity), [], [{:return_trace}]}]
+        match_spec = [{:_, [], [{:return_trace}, {:exception_trace}]}]
         {:ok, {mod, fun, match_spec}}
 
       {:error, _} = err ->
@@ -113,6 +130,19 @@ defmodule XTrace.SpecParser do
 
   defp convert_one(other) do
     {:error, "Unrecognized spec format: #{inspect(other)}"}
+  end
+
+  # --- Shared helpers ---
+
+  defp convert_fun_arity(mod_ast, fun, arity) do
+    case resolve_module(mod_ast) do
+      {:ok, mod} ->
+        match_spec = [{List.duplicate(:_, arity), [], [{:return_trace}, {:exception_trace}]}]
+        {:ok, {mod, fun, match_spec}}
+
+      {:error, _} = err ->
+        err
+    end
   end
 
   # --- Module resolution ---

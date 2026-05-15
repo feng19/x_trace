@@ -52,17 +52,55 @@ defmodule XTrace.SpecParserTest do
   describe "capture syntax" do
     test "parses &Mod.fun/arity" do
       assert {:ok, [{Enum, :map, match_spec}]} = SpecParser.parse("&Enum.map/2")
-      assert [{[:_, :_], [], [{:return_trace}]}] = match_spec
+      assert [{[:_, :_], [], [{:return_trace}, {:exception_trace}]}] = match_spec
     end
 
     test "parses &Mod.fun/0" do
       assert {:ok, [{Enum, :count, match_spec}]} = SpecParser.parse("&Enum.count/0")
-      assert [{[], [], [{:return_trace}]}] = match_spec
+      assert [{[], [], [{:return_trace}, {:exception_trace}]}] = match_spec
     end
 
     test "parses erlang capture &:mod.fun/arity" do
       assert {:ok, [{:ets, :lookup, match_spec}]} = SpecParser.parse("&:ets.lookup/2")
-      assert [{[:_, :_], [], [{:return_trace}]}] = match_spec
+      assert [{[:_, :_], [], [{:return_trace}, {:exception_trace}]}] = match_spec
+    end
+  end
+
+  describe "shorthand Mod.fun/arity syntax" do
+    test "parses Mod.fun/arity same as &Mod.fun/arity" do
+      assert {:ok, [{Enum, :map, match_spec}]} = SpecParser.parse("Enum.map/2")
+      assert [{[:_, :_], [], [{:return_trace}, {:exception_trace}]}] = match_spec
+    end
+
+    test "parses Mod.fun/0" do
+      assert {:ok, [{Enum, :count, match_spec}]} = SpecParser.parse("Enum.count/0")
+      assert [{[], [], [{:return_trace}, {:exception_trace}]}] = match_spec
+    end
+
+    test "parses erlang :mod.fun/arity" do
+      assert {:ok, [{:ets, :lookup, match_spec}]} = SpecParser.parse(":ets.lookup/2")
+      assert [{[:_, :_], [], [{:return_trace}, {:exception_trace}]}] = match_spec
+    end
+
+    test "returns same result as capture syntax" do
+      assert SpecParser.parse("Enum.map/2") == SpecParser.parse("&Enum.map/2")
+    end
+  end
+
+  describe "shorthand Mod.fun syntax" do
+    test "parses Mod.fun with wildcard arity and traces" do
+      assert {:ok, [{Enum, :map, match_spec}]} = SpecParser.parse("Enum.map")
+      assert [{:_, [], [{:return_trace}, {:exception_trace}]}] = match_spec
+    end
+
+    test "parses erlang :mod.fun" do
+      assert {:ok, [{:ets, :lookup, match_spec}]} = SpecParser.parse(":ets.lookup")
+      assert [{:_, [], [{:return_trace}, {:exception_trace}]}] = match_spec
+    end
+
+    test "parses multi-segment Module.fun" do
+      assert {:ok, [{MyApp.Repo, :get, match_spec}]} = SpecParser.parse("MyApp.Repo.get")
+      assert [{:_, [], [{:return_trace}, {:exception_trace}]}] = match_spec
     end
   end
 
@@ -95,9 +133,9 @@ defmodule XTrace.SpecParserTest do
       assert msg =~ ":lists"
     end
 
-    test "rejects :recon_trace module" do
-      assert {:error, msg} = SpecParser.check_banned_mods([{:recon_trace, :calls, 3}])
-      assert msg =~ ":recon_trace"
+    test "rejects :trace module" do
+      assert {:error, msg} = SpecParser.check_banned_mods([{:trace, :function, 4}])
+      assert msg =~ ":trace"
     end
 
     test "rejects Elixir IO module (case-insensitive)" do

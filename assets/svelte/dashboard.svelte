@@ -15,7 +15,7 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import {
-    Sun, Moon, Settings,
+    Sun, Moon, Settings, ArrowLeft,
     Play, SquareX,
   } from "lucide-svelte/icons";
 
@@ -217,7 +217,11 @@
                 size="icon"
                 class="size-9 shrink-0"
               >
-                <Settings class="size-4" aria-hidden="true" />
+                {#if $dashboardStore.setting_mode}
+                  <ArrowLeft class="size-4" aria-hidden="true" />
+                {:else}
+                  <Settings class="size-4" aria-hidden="true" />
+                {/if}
                 <span class="sr-only">{$dashboardStore.setting_mode ? 'Close Settings' : 'Open Settings'}</span>
               </Button>
             </Tooltip.Trigger>

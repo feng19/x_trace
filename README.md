@@ -1,12 +1,15 @@
 # X-Trace
 
-A web-based GUI for [Extrace](https://hex.pm/packages/extrace) / [recon_trace](http://ferd.github.io/recon/recon_trace.html) — making BEAM tracing easy, visual, and interactive.
+A web-based GUI for Erlang's native [`trace`](https://www.erlang.org/doc/apps/kernel/trace.html) module — making BEAM tracing easy, visual, and interactive.
+
+> ⚠️ **Requires Erlang/OTP 27+**. For Erlang/OTP 26 and below, please use [X-Trace v0.3.4](https://github.com/feng19/x_trace/releases/tag/v0.3.4) which uses [Extrace](https://hex.pm/packages/extrace) / [recon_trace](http://ferd.github.io/recon/recon_trace.html).
 
 [Go to the website and watch the video demo.](https://xtrace.feng19.com/)
 
 ## ✨ Features
 
 - **Real-time trace streaming** — Trace messages rendered live in the browser via Phoenix LiveView + Svelte
+- **Multi-session support** — Each browser tab gets its own independent trace session, allowing parallel tracing with different specs and targets
 - **Local & remote tracing** — Trace the local node or any connected remote BEAM node
 - **Node management** — Setup Erlang distribution, connect/disconnect nodes, auto-reconnect on failure
 - **Flexible trace specs** — Supports `{Mod, :fun, args}` tuples, `&Mod.fun/arity` capture syntax, and match specs
@@ -101,7 +104,7 @@ Trace specs define which function calls to trace. Supported formats:
 {:ets, :lookup, :return_trace}
 ```
 
-> **Banned modules**: `recon_trace`, `io`, `lists` are blocked to prevent tracing feedback loops.
+> **Banned modules**: `io`, `lists`, `trace`, and `XTrace.Trace` are blocked to prevent tracing feedback loops.
 
 ### 4. Rate Limiting
 
@@ -122,7 +125,7 @@ Configure safe trace rates to protect production systems:
 3. Watch trace messages stream in real-time
 4. Click **Stop Trace** (⏹) to end the session
 
-The generated `Extrace.calls(...)` command is displayed for reference — you can copy it for use in IEx.
+Trace messages will stream in real-time as they are captured.
 
 ## 🛠️ Tech Stack
 
@@ -131,8 +134,7 @@ The generated `Extrace.calls(...)` command is displayed for reference — you ca
 | **Backend** | [Elixir](https://elixir-lang.org/) + [Phoenix 1.7](https://www.phoenixframework.org/) + [Phoenix LiveView](https://hexdocs.pm/phoenix_live_view) |
 | **Frontend** | [Svelte 4](https://svelte.dev/) via [live_svelte](https://hex.pm/packages/live_svelte), [shadcn-svelte](https://www.shadcn-svelte.com/) UI components |
 | **Styling** | [Tailwind CSS](https://tailwindcss.com/) |
-| **State sync** | [LiveJSON](https://hex.pm/packages/live_json) for efficient JSON patch diffs |
-| **Tracing** | [Extrace](https://hex.pm/packages/extrace) (enhanced recon_trace) |
+| **Tracing** | Erlang/OTP [`trace`](https://www.erlang.org/doc/apps/kernel/trace.html) module (OTP 27+) |
 | **HTTP server** | [Bandit](https://hex.pm/packages/bandit) |
 | **Packaging** | [Burrito](https://hex.pm/packages/burrito) — self-extracting BEAM binaries |
 | **Build tools** | esbuild, TypeScript, esbuild-svelte |
@@ -141,8 +143,8 @@ The generated `Extrace.calls(...)` command is displayed for reference — you ca
 
 ### Prerequisites
 
-- **Erlang/OTP** ≥ 25
-- **Elixir** ≥ 1.14
+- **Erlang/OTP** ≥ 27
+- **Elixir** ≥ 1.18
 - **Node.js** (for asset compilation)
 
 ### Setup

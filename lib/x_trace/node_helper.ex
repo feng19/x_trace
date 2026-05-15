@@ -1,7 +1,6 @@
 defmodule XTrace.NodeHelper do
   @moduledoc false
   require Logger
-  alias XTrace.TraceHelper
 
   def setup_node(node_name, node_type, cookie) do
     with {:ok, _} <- Node.start(node_name, node_type) do
@@ -73,7 +72,7 @@ defmodule XTrace.NodeHelper do
   end
 
   def elixir_node?(node) do
-    case TraceHelper.call(node, :code, :is_loaded, [:elixir]) do
+    case :rpc.call(node, :code, :is_loaded, [:elixir]) do
       {:file, _} -> true
       _ -> false
     end
@@ -122,7 +121,7 @@ defmodule XTrace.NodeHelper do
   def get_code_mode(true, _node), do: :code.get_mode()
 
   def get_code_mode(false, node) do
-    case TraceHelper.call(node, :code, :get_mode, []) do
+    case :rpc.call(node, :code, :get_mode, []) do
       mode when is_atom(mode) -> mode
       _ -> :unknown
     end

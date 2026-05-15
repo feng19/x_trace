@@ -24,13 +24,11 @@ import topbar from "../vendor/topbar"
 import {getHooks} from "live_svelte"
 import * as Components from "../svelte/**/*.svelte"
 const svelteHooks = getHooks(Components);
-import { createLiveJsonHooks } from 'live_json';
-const liveJsonHooks = createLiveJsonHooks();
 
 let csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  hooks: {...svelteHooks, ...liveJsonHooks},
+  hooks: {...svelteHooks},
   params: {_csrf_token: csrfToken}
 })
 

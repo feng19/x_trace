@@ -5,8 +5,8 @@ defmodule XTrace.MixProject do
   def project do
     [
       app: @app,
-      version: "0.3.4",
-      elixir: "~> 1.14",
+      version: "0.4.0",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -38,7 +38,7 @@ defmodule XTrace.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7.21"},
+      {:phoenix, "~> 1.7.23"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
@@ -51,10 +51,6 @@ defmodule XTrace.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:live_svelte, "~> 0.13"},
-      {:live_json, "~> 0.4"},
-      {:json_diff_ex, "~> 0.7", override: true},
-      {:extrace, "~> 0.5"},
-      {:extrace_map_limiter, "~> 0.1"},
       {:burrito, "~> 1.0"}
     ]
   end

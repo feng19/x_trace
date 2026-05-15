@@ -5,19 +5,18 @@
   export let live;
 
   live.handleEvent("flash", (e) => {
-    opts = { description: e.description };
     switch (e.kind) {
       case "info":
-        toast.info(e.msg, opts);
+        toast.info(e.msg);
         break;
       case "success":
-        toast.success(e.msg, opts);
+        toast.success(e.msg);
         break;
       case "warning":
-        toast.warning(e.msg, opts);
+        toast.warning(e.msg);
         break;
       case "error":
-        toast.error(e.msg, opts);
+        toast.error(e.msg);
         break;
     }
   });

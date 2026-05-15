@@ -3,14 +3,23 @@ defmodule XTraceWeb.TraceLive do
   use XTraceWeb, :live_view
   require Logger
   import XTrace.FormatHelper
-  alias XTrace.{IoServer, NodeHelper, NodeListener, SpecParser, TraceHelper, Validator}
+  alias XTrace.{NodeHelper, NodeListener, Session, SessionSupervisor, SpecParser, Validator}
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
+    session_id = session["trace_session_id"]
+    {:ok, _pid} = SessionSupervisor.ensure_session(session_id)
+
     node_info = NodeHelper.node_info()
-    socket = default_assigns(socket, node_info, &LiveJson.initialize/3)
-    XTraceWeb.Endpoint.subscribe(IoServer.topic())
-    XTraceWeb.Endpoint.subscribe(NodeListener.topic())
+    socket = assign(socket, session_id: session_id)
+    socket = default_assigns(socket, node_info)
+
+    if connected?(socket) do
+      XTraceWeb.Endpoint.subscribe(Session.topic(session_id))
+      XTraceWeb.Endpoint.subscribe(NodeListener.topic())
+      Session.register_live_view(session_id)
+    end
+
     {:ok, socket}
   end
 
@@ -64,7 +73,7 @@ defmodule XTraceWeb.TraceLive do
       case NodeHelper.setup_node(node_name, node_type, cookie) do
         :ok ->
           socket
-          |> LiveJson.push_patch("node_info", NodeHelper.node_info())
+          |> assign(:node_info, NodeHelper.node_info())
           |> put_notice(:success, "Setup #{node_name} succeed!")
 
         {:error, error} ->
@@ -81,7 +90,7 @@ defmodule XTraceWeb.TraceLive do
           Process.sleep(100)
 
           socket
-          |> LiveJson.push_patch("node_info", NodeHelper.node_info(Node.self()))
+          |> assign(:node_info, NodeHelper.node_info(Node.self()))
           |> put_notice(:info, "Shutdown node succeed!")
 
         {:error, error} ->
@@ -100,7 +109,7 @@ defmodule XTraceWeb.TraceLive do
           NodeListener.monitor_node(node, cookie)
 
           socket
-          |> LiveJson.push_patch("node_info", NodeHelper.node_info(node))
+          |> assign(:node_info, NodeHelper.node_info(node))
           |> put_notice(:success, "Connect to #{node} succeed!")
 
         {:error, reason} ->
@@ -115,23 +124,18 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("stop-trace", _params, socket) do
-    %{ljop_status: op_status, ljnode_info: node_info} = socket.assigns
-
-    if node_info.is_self do
-      Extrace.clear()
-    else
-      TraceHelper.call(node_info.connected_node, :recon_trace, :clear, [])
-    end
+    %{session_id: session_id, op_status: op_status} = socket.assigns
+    Session.stop_trace(session_id)
 
     socket =
-      LiveJson.push_patch(socket, "op_status", %{
+      assign(socket, :op_status, %{
         op_status
         | start_trace: true,
           save_settings: true,
           reset_settings: true,
           stop_trace: "hidden"
       })
-      |> push_event("add-log", io_msg("Recon tracer stopped."))
+      |> push_event("add-log", io_msg("Tracer stopped."))
 
     {:noreply, socket}
   end
@@ -139,13 +143,13 @@ defmodule XTraceWeb.TraceLive do
   def handle_event("import-tspecs", %{"raw" => raw}, socket) do
     with {:ok, new_specs} <- SpecParser.parse(raw),
          :ok <- SpecParser.check_banned_mods(new_specs) do
-      %{t_specs: t_specs, ljtrace_settings: trace_settings} = socket.assigns
+      %{t_specs: t_specs, trace_settings: trace_settings} = socket.assigns
       t_specs = Enum.uniq(new_specs ++ t_specs)
 
       socket =
         socket
         |> assign(t_specs: t_specs)
-        |> update_cli(%{trace_settings | t_specs: format_t_specs(t_specs)})
+        |> assign(:trace_settings, %{trace_settings | t_specs: format_t_specs(t_specs)})
         |> trace_enable()
 
       {:reply, %{code: 0, msg: "Imported #{length(new_specs)} spec(s)"}, socket}
@@ -157,25 +161,25 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("del-tspec", %{"index" => index}, socket) do
-    %{t_specs: t_specs, ljtrace_settings: trace_settings} = socket.assigns
+    %{t_specs: t_specs, trace_settings: trace_settings} = socket.assigns
     t_specs = List.delete_at(t_specs, index)
 
     socket =
       socket
       |> assign(t_specs: t_specs)
-      |> update_cli(%{trace_settings | t_specs: format_t_specs(t_specs)})
+      |> assign(:trace_settings, %{trace_settings | t_specs: format_t_specs(t_specs)})
       |> trace_enable()
 
     {:noreply, socket}
   end
 
   def handle_event("clear-tspecs", _params, socket) do
-    %{ljtrace_settings: trace_settings} = socket.assigns
+    %{trace_settings: trace_settings} = socket.assigns
 
     socket =
       socket
       |> assign(t_specs: [])
-      |> update_cli(%{trace_settings | t_specs: []})
+      |> assign(:trace_settings, %{trace_settings | t_specs: []})
       |> trace_enable()
 
     {:noreply, socket}
@@ -188,13 +192,13 @@ defmodule XTraceWeb.TraceLive do
           %{
             t_specs: t_specs,
             pids: pids,
-            ljtrace_settings: trace_settings,
-            ljoptions_settings: options_settings
+            trace_settings: trace_settings,
+            options_settings: options_settings
           } = socket.assigns
 
           socket
-          |> LiveJson.push_patch("rate_limiting", rate_limiting)
-          |> update_cli(%{trace_settings | max: format_rate_limiting(rate_limiting)})
+          |> assign(:rate_limiting, rate_limiting)
+          |> assign(:trace_settings, %{trace_settings | max: format_rate_limiting(rate_limiting)})
           |> save_curr_settings(t_specs, rate_limiting, options_settings, pids)
 
         {:error, error} ->
@@ -210,9 +214,9 @@ defmodule XTraceWeb.TraceLive do
     %{
       t_specs: t_specs,
       pids: pids,
-      ljrate_limiting: rate_limiting,
-      ljoptions_settings: options_settings,
-      ljtrace_settings: trace_settings
+      rate_limiting: rate_limiting,
+      options_settings: options_settings,
+      trace_settings: trace_settings
     } =
       socket.assigns
 
@@ -220,8 +224,8 @@ defmodule XTraceWeb.TraceLive do
 
     socket =
       socket
-      |> LiveJson.push_patch("options_settings", options_settings)
-      |> update_cli(%{trace_settings | options: format_options(options_settings, pids)})
+      |> assign(:options_settings, options_settings)
+      |> assign(:trace_settings, %{trace_settings | options: format_options(options_settings, pids)})
       |> save_curr_settings(t_specs, rate_limiting, options_settings, pids)
 
     {:noreply, socket}
@@ -230,7 +234,7 @@ defmodule XTraceWeb.TraceLive do
   def handle_event("set-pid", pid, socket) do
     pid = String.to_existing_atom(pid)
 
-    %{ljoptions_settings: options_settings, ljtrace_settings: trace_settings, pids: pids} =
+    %{options_settings: options_settings, trace_settings: trace_settings, pids: pids} =
       socket.assigns
 
     {pids, options_settings} =
@@ -245,8 +249,8 @@ defmodule XTraceWeb.TraceLive do
     socket =
       socket
       |> assign(pids: pids)
-      |> LiveJson.push_patch("options_settings", options_settings)
-      |> update_cli(%{trace_settings | options: format_options(options_settings, pids)})
+      |> assign(:options_settings, options_settings)
+      |> assign(:trace_settings, %{trace_settings | options: format_options(options_settings, pids)})
       |> trace_enable()
 
     {:noreply, socket}
@@ -263,19 +267,19 @@ defmodule XTraceWeb.TraceLive do
         _ -> false
       end
 
-    %{ljoptions_settings: options_settings} = socket.assigns
+    %{options_settings: options_settings} = socket.assigns
 
     socket =
-      LiveJson.push_patch(socket, "options_settings", %{options_settings | add_pid_enable: enable})
+      assign(socket, :options_settings, %{options_settings | add_pid_enable: enable})
 
     {:noreply, socket}
   end
 
   def handle_event("add-pid", %{"pid" => pid}, socket) do
     %{
-      ljnode_info: node_info,
-      ljoptions_settings: options_settings,
-      ljtrace_settings: trace_settings,
+      node_info: node_info,
+      options_settings: options_settings,
+      trace_settings: trace_settings,
       pids: pids
     } = socket.assigns
 
@@ -287,8 +291,8 @@ defmodule XTraceWeb.TraceLive do
 
           socket
           |> assign(pids: pids)
-          |> LiveJson.push_patch("options_settings", options_settings)
-          |> update_cli(%{trace_settings | options: format_options(options_settings, pids)})
+          |> assign(:options_settings, options_settings)
+          |> assign(:trace_settings, %{trace_settings | options: format_options(options_settings, pids)})
           |> trace_enable()
 
         {:error, error} ->
@@ -299,7 +303,7 @@ defmodule XTraceWeb.TraceLive do
   end
 
   def handle_event("del-pid", %{"index" => index}, socket) do
-    %{ljoptions_settings: options_settings, ljtrace_settings: trace_settings, pids: pids} =
+    %{options_settings: options_settings, trace_settings: trace_settings, pids: pids} =
       socket.assigns
 
     pids = List.delete_at(pids, index)
@@ -308,25 +312,25 @@ defmodule XTraceWeb.TraceLive do
     socket =
       socket
       |> assign(pids: pids)
-      |> LiveJson.push_patch("options_settings", options_settings)
-      |> update_cli(%{trace_settings | options: format_options(options_settings, pids)})
+      |> assign(:options_settings, options_settings)
+      |> assign(:trace_settings, %{trace_settings | options: format_options(options_settings, pids)})
       |> trace_enable()
 
     {:noreply, socket}
   end
 
   def handle_event("reset-settings", _, socket) do
-    %{ljnode_info: node_info} = socket.assigns
+    %{node_info: node_info} = socket.assigns
 
     socket =
-      default_assigns(socket, node_info, &LiveJson.push_patch/3)
+      default_assigns(socket, node_info)
       |> push_event("update_store", %{setting_tab: "trace-settings"})
 
     %{
       t_specs: t_specs,
       pids: pids,
-      ljrate_limiting: rate_limiting,
-      ljoptions_settings: options_settings
+      rate_limiting: rate_limiting,
+      options_settings: options_settings
     } = socket.assigns
 
     socket = save_curr_settings(socket, t_specs, rate_limiting, options_settings, pids)
@@ -338,8 +342,8 @@ defmodule XTraceWeb.TraceLive do
     %{
       t_specs: t_specs,
       pids: pids,
-      ljrate_limiting: rate_limiting,
-      ljoptions_settings: options_settings
+      rate_limiting: rate_limiting,
+      options_settings: options_settings
     } = socket.assigns
 
     settings = %{
@@ -368,51 +372,46 @@ defmodule XTraceWeb.TraceLive do
   end
 
   @impl true
-  def handle_info({:io_stream, msg}, socket) do
-    socket = push_event(socket, "add-log", io_msg(msg))
-    {:noreply, socket}
-  end
-
   def handle_info({:trace_msg, msg}, socket) do
     socket = push_event(socket, "add-log", msg)
     {:noreply, socket}
   end
 
-  def handle_info({:DOWN, _ref, :process, _, reason}, socket) do
-    %{ljop_status: op_status} = socket.assigns
+  def handle_info({:session_info, msg}, socket) do
+    socket = push_event(socket, "add-log", io_msg(msg))
+    {:noreply, socket}
+  end
+
+  def handle_info({:session_stopped, reason}, socket) do
+    %{op_status: op_status} = socket.assigns
 
     socket =
-      LiveJson.push_patch(socket, "op_status", %{
+      assign(socket, :op_status, %{
         op_status
         | start_trace: true,
           save_settings: true,
           reset_settings: true,
           stop_trace: "hidden"
       })
-      |> put_notice(:info, "tracer down by #{reason}")
+      |> put_notice(:info, "Tracer stopped: #{inspect(reason)}")
 
-    {:noreply, socket}
-  end
-
-  def handle_info({:EXIT, _pid, :normal}, socket) do
-    Process.group_leader(self(), socket.assigns.group_leader)
     {:noreply, socket}
   end
 
   def handle_info({:nodeup, node, _node_type}, socket) do
-    %{ljnode_info: node_info} = socket.assigns
+    %{node_info: node_info} = socket.assigns
     node_info = NodeHelper.node_info(node_info.connected_node)
 
     socket =
       socket
-      |> LiveJson.push_patch("node_info", node_info)
+      |> assign(:node_info, node_info)
       |> put_notice(:info, "Node:#{node} up!")
 
     {:noreply, socket}
   end
 
   def handle_info({:nodedown, node, _node_type}, socket) do
-    %{ljnode_info: node_info} = socket.assigns
+    %{node_info: node_info} = socket.assigns
     connected_node = node_info.connected_node
 
     socket =
@@ -420,7 +419,7 @@ defmodule XTraceWeb.TraceLive do
         node_info = NodeHelper.change_to_self()
 
         socket
-        |> default_assigns(node_info, &LiveJson.push_patch/3)
+        |> default_assigns(node_info)
         |> put_notice(
           :warning,
           "Node:#{node} was downed, changed to connect node: #{node_info.connected_node}"
@@ -433,8 +432,6 @@ defmodule XTraceWeb.TraceLive do
           |> switch_node_assigns(node_info)
           |> put_notice(:info, "Node:#{node} was downed!")
         else
-          # node was downed, so just ignore this message
-
           switch_node_assigns(socket, node_info)
         end
       end
@@ -455,26 +452,25 @@ defmodule XTraceWeb.TraceLive do
     push_event(socket, "flash", %{kind: kind, msg: msg, description: desc})
   end
 
-  defp default_assigns(socket, node_info, assign_fun) do
+  defp default_assigns(socket, node_info) do
     rate_limiting = %{max: 10, milliseconds: 1000}
 
     socket
     |> assign(t_specs: [], pids: [])
-    |> assign_fun.("node_info", node_info)
-    |> assign_fun.("trace_settings", %{
+    |> assign(:node_info, node_info)
+    |> assign(:trace_settings, %{
       t_specs: [],
       max: format_rate_limiting(rate_limiting),
-      options: "[scope: :local]",
-      cli: TraceHelper.cli_command([], rate_limiting_to_max(rate_limiting), scope: :local)
+      options: "[scope: :local]"
     })
-    |> assign_fun.("rate_limiting", rate_limiting)
-    |> assign_fun.("options_settings", %{
+    |> assign(:rate_limiting, rate_limiting)
+    |> assign(:options_settings, %{
       scope: :local,
       pid: :all,
       pids: [],
       add_pid_enable: false
     })
-    |> assign_fun.("op_status", %{
+    |> assign(:op_status, %{
       start_trace: false,
       stop_trace: "hidden",
       save_settings: false,
@@ -485,8 +481,8 @@ defmodule XTraceWeb.TraceLive do
   defp switch_node_assigns(socket, node_info) do
     %{
       t_specs: t_specs,
-      ljrate_limiting: rate_limiting,
-      ljoptions_settings: options_settings
+      rate_limiting: rate_limiting,
+      options_settings: options_settings
     } = socket.assigns
 
     # Reset PIDs (node-specific) but preserve everything else
@@ -495,15 +491,14 @@ defmodule XTraceWeb.TraceLive do
 
     socket
     |> assign(pids: pids)
-    |> LiveJson.push_patch("node_info", node_info)
-    |> LiveJson.push_patch("options_settings", options_settings)
-    |> update_cli(%{
+    |> assign(:node_info, node_info)
+    |> assign(:options_settings, options_settings)
+    |> assign(:trace_settings, %{
       t_specs: format_t_specs(t_specs),
       max: format_rate_limiting(rate_limiting),
-      options: format_options(options_settings, pids),
-      cli: ""
+      options: format_options(options_settings, pids)
     })
-    |> LiveJson.push_patch("op_status", %{
+    |> assign(:op_status, %{
       start_trace: false,
       stop_trace: "hidden",
       save_settings: false,
@@ -516,9 +511,9 @@ defmodule XTraceWeb.TraceLive do
     %{
       t_specs: t_specs,
       pids: pids,
-      ljop_status: op_status,
-      ljrate_limiting: rate_limiting,
-      ljoptions_settings: options_settings
+      op_status: op_status,
+      rate_limiting: rate_limiting,
+      options_settings: options_settings
     } = socket.assigns
 
     enable = not Enum.empty?(t_specs)
@@ -530,7 +525,7 @@ defmodule XTraceWeb.TraceLive do
       end
 
     socket =
-      LiveJson.push_patch(socket, "op_status", %{
+      assign(socket, :op_status, %{
         op_status
         | start_trace: enable,
           save_settings: enable,
@@ -551,8 +546,6 @@ defmodule XTraceWeb.TraceLive do
   end
 
   defp settings_to_options(options_settings, pids) do
-    options_settings.scope
-
     pid =
       case options_settings.pid do
         :pid -> pids
@@ -568,31 +561,33 @@ defmodule XTraceWeb.TraceLive do
 
   def start_trace(socket) do
     %{
+      session_id: session_id,
       t_specs: t_specs,
       pids: pids,
-      ljop_status: op_status,
-      ljnode_info: node_info,
-      ljrate_limiting: rate_limiting,
-      ljoptions_settings: options_settings
+      op_status: op_status,
+      node_info: node_info,
+      rate_limiting: rate_limiting,
+      options_settings: options_settings
     } = socket.assigns
 
     max = rate_limiting_to_max(rate_limiting)
     options = settings_to_options(options_settings, pids)
 
-    if node_info.is_self do
-      IoServer.puts("Start tracing on this node")
-      TraceHelper.local_calls(t_specs, max, options)
-    else
-      IoServer.puts("Start tracing on node: #{node_info.connected_node}")
-      TraceHelper.remote_calls(node_info.connected_node, t_specs, max, options)
-    end
+    # Add node to options for remote tracing
+    options =
+      if node_info.is_self do
+        Session.broadcast_session_info(session_id, "Start tracing on this node")
+        options
+      else
+        Session.broadcast_session_info(session_id, "Start tracing on node: #{node_info.connected_node}")
+        [{:node, node_info.connected_node} | options]
+      end
 
-    TraceHelper.cli_command(t_specs, max, options) |> IoServer.puts()
+    Session.start_trace(session_id, t_specs, max, options)
 
-    encoded_settings =
-      :erlang.term_to_binary(%{t_specs: t_specs, max: max, options: options}) |> Base.encode64()
+    encoded_settings = :erlang.term_to_binary(%{t_specs: t_specs, max: max, options: options}) |> Base.encode64()
 
-    LiveJson.push_patch(socket, "op_status", %{
+    assign(socket, :op_status, %{
       op_status
       | start_trace: "hidden",
         save_settings: "hidden",
@@ -607,7 +602,7 @@ defmodule XTraceWeb.TraceLive do
     %{t_specs: t_specs, max: max, options: options} = settings
     options = Map.new(options)
     rate_limiting = max_to_rate_limiting(max)
-    %{ljoptions_settings: options_settings} = socket.assigns
+    %{options_settings: options_settings} = socket.assigns
 
     {pid, pids} =
       case options.pid do
@@ -618,18 +613,17 @@ defmodule XTraceWeb.TraceLive do
     socket =
       socket
       |> assign(t_specs: t_specs, pids: pids)
-      |> LiveJson.push_patch("rate_limiting", rate_limiting)
-      |> LiveJson.push_patch("options_settings", %{
+      |> assign(:rate_limiting, rate_limiting)
+      |> assign(:options_settings, %{
         options_settings
         | scope: options.scope,
           pid: pid,
           pids: format_pids(pids)
       })
-      |> update_cli(%{
+      |> assign(:trace_settings, %{
         t_specs: format_t_specs(t_specs),
         max: format_rate_limiting(rate_limiting),
-        options: format_options(options, pids),
-        cli: ""
+        options: format_options(options, pids)
       })
       |> trace_enable()
 
@@ -638,12 +632,6 @@ defmodule XTraceWeb.TraceLive do
     else
       put_notice(socket, :success, "apply settings succeed!")
     end
-  end
-
-  def update_cli(socket, trace_settings) do
-    %{t_specs: t_specs, max: max, options: options} = trace_settings
-    cli = "Extrace.calls([#{Enum.join(t_specs, ",")}], #{max}, #{options})"
-    LiveJson.push_patch(socket, "trace_settings", %{trace_settings | cli: cli})
   end
 
   def rate_limiting_to_max(%{max: max, milliseconds: milliseconds}), do: {max, milliseconds}

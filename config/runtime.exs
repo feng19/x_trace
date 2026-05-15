@@ -24,6 +24,7 @@ if config_env() == :prod do
 
   config :x_trace, XTraceWeb.Endpoint,
     server: true,
+    check_origin: false,
     url: [host: host, port: port, scheme: "http"],
     http: [
       # Enable IPv6 and bind on all interfaces.

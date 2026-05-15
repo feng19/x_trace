@@ -14,7 +14,6 @@
     "bits-ui": "^0.21.13",
     "clsx": "^2.1.1",
     "cmdk-sv": "^0.0.18",
-    "live_json": "file:../deps/live_json",
     "live_svelte": "file:../deps/live_svelte",
     "lucide-svelte": "^0.417.0",
     "markdown-it": "^14.1.1",

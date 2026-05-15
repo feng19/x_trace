@@ -1,13 +1,12 @@
 <script>
   /**
    * Shared settings display component.
-   * Renders TSpecs, Rate-Limiting, Options, and CLI in a unified style.
+   * Renders TSpecs, Rate-Limiting, and Options in a unified style.
    * Each data block has a copy-to-clipboard button at its top-right corner.
    *
    * @prop {string|string[]|number} tSpecs - trace specs
    * @prop {string} max - rate limiting value
    * @prop {string} options - options value
-   * @prop {string} cli - CLI command string
    * @prop {boolean} compact - compact mode for cards (smaller text, tighter spacing)
    */
   import { Copy, Check } from "lucide-svelte/icons";
@@ -16,7 +15,6 @@
   export let tSpecs = [];
   export let max = "";
   export let options = "";
-  export let cli = "";
   export let compact = false;
 
   $: labelClass = compact
@@ -120,23 +118,4 @@
     </div>
   </div>
 
-  {#if cli}
-    <div>
-      <div class={labelClass}>CLI:</div>
-      <div class={boxClass}>
-        <button
-          class={btnClass}
-          title="Copy CLI"
-          on:click={() => copyText("cli", cli)}
-        >
-          {#if copied === "cli"}
-            <Check class={iconSize} />
-          {:else}
-            <Copy class={iconSize} />
-          {/if}
-        </button>
-        <pre class={preClass}>{cli}</pre>
-      </div>
-    </div>
-  {/if}
 </div>

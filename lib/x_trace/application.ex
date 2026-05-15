@@ -13,7 +13,8 @@ defmodule XTrace.Application do
       XTraceWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:x_trace, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: XTrace.PubSub},
-      XTrace.IoServer,
+      {Registry, keys: :unique, name: XTrace.SessionRegistry},
+      XTrace.SessionSupervisor,
       XTrace.NodeListener,
       # Start to serve requests, typically the last entry
       XTraceWeb.Endpoint
