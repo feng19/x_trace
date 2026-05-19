@@ -1,8 +1,9 @@
 <script>
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
   import { dashboardStore } from "./d_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
-  import { mode, toggleMode } from "./dark_mode.js";
+  import { mode, toggleMode } from "mode-watcher";
   import { ModeWatcher } from "mode-watcher";
   import Flash from "./flash.svelte";
   import InfoPanel from "./info_panel.svelte";
@@ -17,39 +18,36 @@
   import {
     Sun, Moon, Settings, ArrowLeft,
     Play, SquareX,
-  } from "lucide-svelte/icons";
+  } from "@lucide/svelte/icons";
 
-  export let live;
-  export let node_info;
-  export let trace_settings;
-  export let rate_limiting;
-  export let options_settings;
-  export let op_status;
+  let { live, node_info, trace_settings, rate_limiting, options_settings, op_status } = $props();
 
   let defaultLayout = [25, 75];
 
-  $: startTraceItem = {
+  let startTraceItem = $derived({
     show: op_status.start_trace !== "hidden",
     disabled: !op_status.start_trace,
     btn_class: op_status.start_trace ? "text-red-600" : "",
-  };
-  $: stopTraceItem = {
+  });
+  let stopTraceItem = $derived({
     show: op_status.stop_trace !== "hidden",
     disabled: !op_status.stop_trace,
     btn_class: op_status.stop_trace ? "text-red-600" : "",
-  };
-  $: isTracing = op_status?.stop_trace === true;
-  $: if (isTracing) dashboardStore.setSettingMode(false);
-  $: showLeftPanel = !isTracing && $dashboardStore.setting_mode;
+  });
+  let isTracing = $derived(op_status?.stop_trace === true);
+  $effect(() => {
+    if (isTracing) dashboardStore.setSettingMode(false);
+  });
+  let showLeftPanel = $derived(!isTracing && $dashboardStore.setting_mode);
 
   function onUpdateStore(data) {
     console.log(data);
     dashboardStore.update((obj) => ({ ...obj, ...data }));
   }
 
-  live.handleEvent("update_store", onUpdateStore);
-
   onMount(() => {
+    live.handleEvent("update_store", onUpdateStore);
+
     // Global keyboard shortcut: Cmd+K (Mac) / Ctrl+K (PC) to clear logs
     function onKeyDown(e) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -153,6 +151,7 @@
   });
 </script>
 
+<Tooltip.Provider>
 <ModeWatcher />
 <Flash {live} />
 
@@ -176,7 +175,7 @@
               variant="outline"
               class="w-full space-x-2 {startTraceItem.btn_class}"
               disabled={startTraceItem.disabled}
-              on:click={() => live.pushEvent("start-trace", {})}
+              onclick={() => live.pushEvent("start-trace", {})}
             >
               <Play class="size-4" />
               <span>Start Trace</span>
@@ -187,7 +186,7 @@
               variant="outline"
               class="w-full space-x-2 {stopTraceItem.btn_class}"
               disabled={stopTraceItem.disabled}
-              on:click={() => live.pushEvent("stop-trace", {})}
+              onclick={() => live.pushEvent("stop-trace", {})}
             >
               <SquareX class="size-4" />
               <span>Stop Trace</span>
@@ -209,10 +208,9 @@
       <div class="sticky top-0 z-50 bg-background">
         <div class="px-2 h-[52px] flex items-center gap-1">
           <Tooltip.Root openDelay={0}>
-            <Tooltip.Trigger asChild let:builder>
+            <Tooltip.Trigger>
               <Button
-                on:click={() => dashboardStore.toggleSettingMode()}
-                builders={[builder]}
+                onclick={() => dashboardStore.toggleSettingMode()}
                 variant={$dashboardStore.setting_mode ? "default" : "ghost"}
                 size="icon"
                 class="size-9 shrink-0"
@@ -232,15 +230,14 @@
           <SearchBar {live} {isTracing} {op_status} />
 
           <Tooltip.Root openDelay={0}>
-            <Tooltip.Trigger asChild let:builder>
+            <Tooltip.Trigger>
               <Button
-                on:click={toggleMode}
-                builders={[builder]}
+                onclick={toggleMode}
                 variant="ghost"
                 size="icon"
                 class="size-9 shrink-0"
               >
-                {#if $mode === "dark"}
+                {#if mode.current === "dark"}
                   <Sun class="size-4" aria-hidden="true" />
                 {:else}
                   <Moon class="size-4" aria-hidden="true" />
@@ -249,7 +246,7 @@
               </Button>
             </Tooltip.Trigger>
             <Tooltip.Content side="bottom" class="flex items-center gap-4">
-              {$mode === "dark" ? 'Light Mode' : 'Dark Mode'}
+              {mode.current === "dark" ? 'Light Mode' : 'Dark Mode'}
             </Tooltip.Content>
           </Tooltip.Root>
         </div>
@@ -257,7 +254,9 @@
       </div>
 
       {#if $dashboardStore.setting_mode}
-        <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} {op_status} />
+        <div in:fly={{ y: -20, duration: 280, opacity: 0 }} out:fly={{ y: -20, duration: 200, opacity: 0 }}>
+          <SettingPanel {live} {node_info} {trace_settings} {rate_limiting} {options_settings} {op_status} />
+        </div>
       {/if}
       <div class:hidden={$dashboardStore.setting_mode}>
         <LogList {live} {node_info} {isTracing} />
@@ -280,3 +279,4 @@
     </ScrollArea>
   </Resizable.Pane>
 </Resizable.PaneGroup>
+</Tooltip.Provider>

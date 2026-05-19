@@ -103,6 +103,7 @@ function createFilterStore() {
     // PID filter state (session-only, not persisted)
     // When non-empty, only show logs matching these PIDs
     filterPids: [],
+    availablePids: [],
     // MFA filter state (session-only, not persisted)
     // When non-empty, only show logs matching these MFAs
     filterMfas: [],
@@ -431,6 +432,14 @@ function createFilterStore() {
     },
 
     // ─── PID Filter API ───────────────────────────────────────────────────
+
+    /**
+     * Update the list of available PIDs (derived from log items).
+     * @param {string[]} pids - Sorted unique PID strings.
+     */
+    setAvailablePids(pids) {
+      store.update((s) => ({ ...s, availablePids: pids }));
+    },
 
     /**
      * Add a PID to the include-filter list.

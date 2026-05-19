@@ -3,13 +3,15 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import SettingsDisplay from "$lib/components/settings_display.svelte";
 
-  export let open = false;
-  export let title = "Details";
-  export let tSpecs = [];
-  export let max = "";
-  export let options = "";
-  export let name = "";
-  export let savedAt = "";
+  let {
+    open = $bindable(false),
+    title = "Details",
+    tSpecs = [],
+    max = "",
+    options = "",
+    name = "",
+    savedAt = "",
+  } = $props();
 </script>
 
 <Dialog.Root bind:open>

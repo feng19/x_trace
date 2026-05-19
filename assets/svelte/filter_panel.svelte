@@ -3,23 +3,23 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
-  import { SlidersHorizontal, Eraser } from "lucide-svelte/icons";
+  import { SlidersHorizontal, Eraser } from "@lucide/svelte/icons";
   import { Badge } from "$lib/components/ui/badge/index.js";
 
-  let open = false;
-  let inputValue = "";
-  let dropdownIndex = -1;
-  let inputEl;
+  let open = $state(false);
+  let inputValue = $state("");
+  let dropdownIndex = $state(-1);
+  let inputEl = $state(null);
 
-  $: filteredKeys = $filterStore.filteredKeys;
-  $: availableKeys = $filterStore.availableKeys;
-  $: filterCount = filteredKeys.length;
-  $: hasFilter = filterCount > 0;
+  let filteredKeys = $derived($filterStore.filteredKeys);
+  let availableKeys = $derived($filterStore.availableKeys);
+  let filterCount = $derived(filteredKeys.length);
+  let hasFilter = $derived(filterCount > 0);
 
   // Dropdown items: available keys minus already-filtered, filtered by input text
-  $: dropdownItems = availableKeys.filter(
+  let dropdownItems = $derived(availableKeys.filter(
     (k) => !filteredKeys.includes(k) && (inputValue === "" || k.toLowerCase().includes(inputValue.toLowerCase()))
-  );
+  ));
 
   function selectKey(key) {
     filterStore.addKey(key);
@@ -99,11 +99,10 @@
 </script>
 
 <Popover.Root bind:open onOpenChange={onOpen}>
-  <Popover.Trigger asChild let:builder>
+  <Popover.Trigger>
     <Tooltip.Root openDelay={0}>
-      <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+      <Tooltip.Trigger>
         <Button
-          builders={[builder, tooltipBuilder]}
           variant="ghost"
           size="icon"
           class="size-9 shrink-0 relative"
@@ -131,7 +130,7 @@
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium">Filter Out by Key</span>
         {#if hasFilter}
-          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={clearAll}>
+          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={clearAll}>
             <Eraser class="size-3 mr-1" />
             Clear
           </Button>
@@ -147,7 +146,7 @@
               {key}
               <button
                 class="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5 leading-none"
-                on:click|stopPropagation={() => removeKey(key)}
+                onclick={(e) => { e.stopPropagation(); removeKey(key); }}
               >
                 ✕
               </button>
@@ -156,8 +155,8 @@
           <input
             bind:this={inputEl}
             bind:value={inputValue}
-            on:input={onInput}
-            on:keydown={handleKeyDown}
+            oninput={onInput}
+            onkeydown={handleKeyDown}
             class="flex-1 min-w-[60px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             placeholder={filteredKeys.length === 0 ? "Filter by key…" : "Add key…"}
           />
@@ -169,7 +168,7 @@
             {#each dropdownItems as item, i (item)}
               <button
                 class="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground {i === dropdownIndex ? 'bg-accent text-accent-foreground' : ''}"
-                on:mousedown|preventDefault={() => selectKey(item)}
+                onmousedown={(e) => { e.preventDefault(); selectKey(item); }}
               >
                 {item}
               </button>

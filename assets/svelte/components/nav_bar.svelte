@@ -4,10 +4,12 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { slide } from "svelte/transition";
 
-  export let live;
-  export let isCollapsed = true;
-  export let side = "bottom";
-  export let items;
+  let {
+    live,
+    isCollapsed = true,
+    side = "bottom",
+    items,
+  } = $props();
 
   function buttonClick(type, event_name) {
     switch (type) {
@@ -34,13 +36,12 @@
     >
       {#if isCollapsed}
         <Tooltip.Root openDelay={0}>
-          <Tooltip.Trigger asChild let:builder>
+          <Tooltip.Trigger>
             <Button
-              on:click={() => {
+              onclick={() => {
                 buttonClick(item.event.type, item.event.name);
               }}
               disabled={item.disabled}
-              builders={[builder]}
               variant={item.variant}
               size="icon"
               class={cn(
@@ -50,8 +51,8 @@
                   "dark:bg-muted dark:text-muted-foreground dark:hover:bg-muted dark:hover:text-white"
               )}
             >
-              <svelte:component
-                this={item.icon}
+              {@const Icon = item.icon}
+              <Icon
                 class="size-4"
                 aria-hidden="true"
               />
@@ -64,7 +65,7 @@
         </Tooltip.Root>
       {:else}
         <Button
-          on:click={() => {
+          onclick={() => {
             buttonClick(item.event.type, item.event.name);
           }}
           disabled={item.disabled}
@@ -74,8 +75,8 @@
               item.variant === "default",
           })}
         >
-          <svelte:component
-            this={item.icon}
+          {@const Icon = item.icon}
+          <Icon
             class="mr-2 size-4"
             aria-hidden="true"
           />

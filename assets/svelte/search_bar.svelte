@@ -19,7 +19,7 @@
     X,
     Layers,
     MousePointerClick,
-  } from "lucide-svelte/icons";
+  } from "@lucide/svelte/icons";
   import { Input } from "$lib/components/ui/input";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import { Label } from "$lib/components/ui/label";
@@ -27,23 +27,21 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";
 
-  export let live;
-  export let isTracing = false;
-  export let op_status;
+  let { live, isTracing = false, op_status } = $props();
 
-  $: startTraceItem = {
+  let startTraceItem = $derived({
     show: op_status.start_trace !== "hidden",
     disabled: !op_status.start_trace,
-  };
-  $: stopTraceItem = {
+  });
+  let stopTraceItem = $derived({
     show: op_status.stop_trace !== "hidden",
     disabled: !op_status.stop_trace,
-  };
+  });
 
-  let downloadOpen = false;
-  let clearConfirmOpen = false;
+  let downloadOpen = $state(false);
+  let clearConfirmOpen = $state(false);
 
-  $: selectingMode = $dashboardStore.selecting_mode;
+  let selectingMode = $derived($dashboardStore.selecting_mode);
 
   function startSelectingMode() {
     downloadOpen = false;
@@ -56,16 +54,16 @@
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
-  $: hasLogs = $dashboardStore.log_count > 0;
-  $: expandAll = $dashboardStore.expand_all;
-  $: hasAnyExpanded = $dashboardStore.expanded_count > 0;
+  let hasLogs = $derived($dashboardStore.log_count > 0);
+  let expandAll = $derived($dashboardStore.expand_all);
+  let hasAnyExpanded = $derived($dashboardStore.expanded_count > 0);
 
   // Fold level from filter store
-  $: foldLevel = $filterStore.foldLevel;
-  $: showDetailsPid = $filterStore.showDetailsPid;
-  $: showDetailsTime = $filterStore.showDetailsTime;
+  let foldLevel = $derived($filterStore.foldLevel);
+  let showDetailsPid = $derived($filterStore.showDetailsPid);
+  let showDetailsTime = $derived($filterStore.showDetailsTime);
 
-  let foldLevelOpen = false;
+  let foldLevelOpen = $state(false);
 
   function onFoldLevelSlider(e) {
     const val = parseInt(e.target.value, 10);
@@ -81,14 +79,14 @@
   }
 
   // Search state from filter store
-  $: searchQuery = $filterStore.searchQuery;
-  $: searchTotalMatches = $filterStore.searchTotalMatches;
-  $: searchCaseSensitive = $filterStore.searchCaseSensitive;
-  $: hasSearchQuery = searchQuery.length > 0;
+  let searchQuery = $derived($filterStore.searchQuery);
+  let searchTotalMatches = $derived($filterStore.searchTotalMatches);
+  let searchCaseSensitive = $derived($filterStore.searchCaseSensitive);
+  let hasSearchQuery = $derived(searchQuery.length > 0);
 
-  let searchValue = "";
+  let searchValue = $state("");
   let searchDebounceTimer;
-  let searchFocused = false;
+  let searchFocused = $state(false);
 
   function onSearchInput(e) {
     searchValue = e.target.value;
@@ -159,10 +157,9 @@
 
 {#if isTracing && stopTraceItem.show}
   <Tooltip.Root openDelay={0}>
-    <Tooltip.Trigger asChild let:builder>
+    <Tooltip.Trigger>
       <Button
-        on:click={() => live.pushEvent("stop-trace", {})}
-        builders={[builder]}
+        onclick={() => live.pushEvent("stop-trace", {})}
         variant="ghost"
         size="icon"
         class="size-9 text-red-600 shrink-0"
@@ -178,10 +175,9 @@
   </Tooltip.Root>
 {:else if !isTracing && startTraceItem.show}
   <Tooltip.Root openDelay={0}>
-    <Tooltip.Trigger asChild let:builder>
+    <Tooltip.Trigger>
       <Button
-        on:click={() => live.pushEvent("start-trace", {})}
-        builders={[builder]}
+        onclick={() => live.pushEvent("start-trace", {})}
         variant="ghost"
         size="icon"
         class="size-9 text-red-600 shrink-0"
@@ -203,10 +199,10 @@
     name="search"
     placeholder="Search… (Enter: next, Shift+Enter: prev)"
     value={searchValue}
-    on:input={onSearchInput}
-    on:keydown={onSearchKeyDown}
-    on:focus={onSearchFocus}
-    on:blur={onSearchBlur}
+    oninput={onSearchInput}
+    onkeydown={onSearchKeyDown}
+    onfocus={onSearchFocus}
+    onblur={onSearchBlur}
     class="pr-20 transition-all duration-200 {searchFocused ? 'ring-2 ring-blue-500 border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.15)]' : ''} {hasSearchQuery ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-700' : ''}"
   />
   <div class="absolute right-1 flex items-center gap-0.5">
@@ -216,15 +212,13 @@
       </span>
     {/if}
     <Tooltip.Root openDelay={0}>
-      <Tooltip.Trigger asChild let:builder>
+      <Tooltip.Trigger>
         <button
           class="inline-flex items-center justify-center rounded-sm size-6 transition-colors
             {searchCaseSensitive
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
-          on:click={toggleCaseSensitive}
-          use:builder.action
-          {...builder}
+          onclick={toggleCaseSensitive}
         >
           <CaseSensitive class="size-3.5" />
         </button>
@@ -235,12 +229,10 @@
     </Tooltip.Root>
     {#if hasSearchQuery}
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger asChild let:builder>
+        <Tooltip.Trigger>
           <button
             class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            on:click={() => filterStore.searchPrev()}
-            use:builder.action
-            {...builder}
+            onclick={() => filterStore.searchPrev()}
           >
             <ChevronUp class="size-3.5" />
           </button>
@@ -250,12 +242,10 @@
         </Tooltip.Content>
       </Tooltip.Root>
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger asChild let:builder>
+        <Tooltip.Trigger>
           <button
             class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            on:click={() => filterStore.searchNext()}
-            use:builder.action
-            {...builder}
+            onclick={() => filterStore.searchNext()}
           >
             <ChevronDown class="size-3.5" />
           </button>
@@ -265,12 +255,10 @@
         </Tooltip.Content>
       </Tooltip.Root>
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger asChild let:builder>
+        <Tooltip.Trigger>
           <button
             class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            on:click={clearSearch}
-            use:builder.action
-            {...builder}
+            onclick={clearSearch}
           >
             <X class="size-3.5" />
           </button>
@@ -287,11 +275,10 @@
 <TypeFilterPanel />
 
 <Popover.Root bind:open={foldLevelOpen}>
-  <Popover.Trigger asChild let:builder>
+  <Popover.Trigger>
     <Tooltip.Root openDelay={0}>
-      <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+      <Tooltip.Trigger>
         <Button
-          builders={[builder, tooltipBuilder]}
           variant="ghost"
           size="icon"
           class="size-9 shrink-0"
@@ -319,7 +306,7 @@
           max="10"
           step="1"
           value={foldLevel}
-          on:input={onFoldLevelSlider}
+          oninput={onFoldLevelSlider}
           class="flex-1 h-2 accent-blue-600 cursor-pointer"
         />
         <input
@@ -328,7 +315,7 @@
           max="10"
           step="1"
           value={foldLevel}
-          on:change={onFoldLevelInput}
+          onchange={onFoldLevelInput}
           class="w-14 h-8 rounded-md border border-input bg-background px-2 text-sm text-center tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
       </div>
@@ -357,10 +344,9 @@
 
 {#if hasLogs && !expandAll}
   <Tooltip.Root openDelay={0}>
-    <Tooltip.Trigger asChild let:builder>
+    <Tooltip.Trigger>
       <Button
-        on:click={() => window.dispatchEvent(new CustomEvent("x:expand-all-logs"))}
-        builders={[builder]}
+        onclick={() => window.dispatchEvent(new CustomEvent("x:expand-all-logs"))}
         variant="ghost"
         size="icon"
         class="size-9 shrink-0"
@@ -377,10 +363,9 @@
 
 {#if hasAnyExpanded}
   <Tooltip.Root openDelay={0}>
-    <Tooltip.Trigger asChild let:builder>
+    <Tooltip.Trigger>
       <Button
-        on:click={() => window.dispatchEvent(new CustomEvent("x:collapse-all-logs"))}
-        builders={[builder]}
+        onclick={() => window.dispatchEvent(new CustomEvent("x:collapse-all-logs"))}
         variant="ghost"
         size="icon"
         class="size-9 shrink-0"
@@ -397,11 +382,10 @@
 
 {#if hasLogs}
   <Popover.Root bind:open={clearConfirmOpen}>
-    <Popover.Trigger asChild let:builder>
+    <Popover.Trigger>
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+        <Tooltip.Trigger>
           <Button
-            builders={[builder, tooltipBuilder]}
             variant="ghost"
             size="icon"
             class="size-9 shrink-0"
@@ -421,10 +405,10 @@
     <Popover.Content class="w-56 p-3" align="end">
       <p class="text-sm text-muted-foreground mb-3">Are you sure you want to clear all logs?</p>
       <div class="flex justify-end gap-2">
-        <Button variant="outline" size="sm" on:click={() => (clearConfirmOpen = false)}>
+        <Button variant="outline" size="sm" onclick={() => (clearConfirmOpen = false)}>
           Cancel
         </Button>
-        <Button variant="destructive" size="sm" on:click={doClearLogs}>
+        <Button variant="destructive" size="sm" onclick={doClearLogs}>
           Clear
         </Button>
       </div>
@@ -434,11 +418,10 @@
 
 {#if hasLogs}
   <Popover.Root bind:open={downloadOpen}>
-    <Popover.Trigger asChild let:builder>
+    <Popover.Trigger>
       <Tooltip.Root openDelay={0}>
-        <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+        <Tooltip.Trigger>
           <Button
-            builders={[builder, tooltipBuilder]}
             variant="ghost"
             size="icon"
             class="size-9 shrink-0"
@@ -455,14 +438,14 @@
     <Popover.Content class="w-56 p-1" align="end">
       <button
         class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-        on:click={() => downloadLogs("text")}
+        onclick={() => downloadLogs("text")}
       >
         <FileText class="size-4" />
         Plaintext (.log)
       </button>
       <button
         class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-        on:click={() => downloadLogs("json")}
+        onclick={() => downloadLogs("json")}
       >
         <FileJson class="size-4" />
         JSON (.json)
@@ -470,7 +453,7 @@
       <div class="my-1 h-px bg-border"></div>
       <button
         class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-        on:click={startSelectingMode}
+        onclick={startSelectingMode}
       >
         <MousePointerClick class="size-4" />
         Select & Download (.json)
@@ -480,10 +463,9 @@
 {/if}
 
 <Tooltip.Root openDelay={0}>
-  <Tooltip.Trigger asChild let:builder>
+  <Tooltip.Trigger>
     <Button
-      on:click={importLogs}
-      builders={[builder]}
+      onclick={importLogs}
       variant="ghost"
       size="icon"
       class="size-9 shrink-0"

@@ -40,7 +40,7 @@ defmodule XTraceWeb.TraceLive do
     {:reply, %{recall_cli: content}, socket}
   end
 
-  def handle_event("switch-node", node, socket) do
+  def handle_event("switch-node", %{"node" => node}, socket) do
     {reply, socket} =
       try do
         node_info = node |> String.to_existing_atom() |> NodeHelper.change_node()

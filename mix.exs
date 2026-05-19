@@ -5,7 +5,7 @@ defmodule XTrace.MixProject do
   def project do
     [
       app: @app,
-      version: "0.4.0",
+      version: "0.4.1",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -50,7 +50,7 @@ defmodule XTrace.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:live_svelte, "~> 0.13"},
+      {:live_svelte, "~> 0.18"},
       {:burrito, "~> 1.0"}
     ]
   end

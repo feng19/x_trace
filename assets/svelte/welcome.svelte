@@ -6,11 +6,10 @@
   import { Button } from "$lib/components/ui/button/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur } from "svelte/transition";
-  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, FileUp, Play, Settings } from "lucide-svelte/icons";
+  import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, FileUp, Play, Settings } from "@lucide/svelte/icons";
   import NodeSwitcher from "./node_switcher.svelte";
 
-  export let live;
-  export let node_info = {};
+  let { live, node_info = {} } = $props();
 
   function applySettings(item) {
     settingsLocalStorage.select(item.id);
@@ -97,7 +96,7 @@
   If either the pid specification excludes a process or a trace
   pattern excludes a given call, no trace will be received.
 
-  !! Go to <a href="#settings" on:click|preventDefault={() => dashboardStore.setSettingMode(true)} class="underline hover:text-foreground cursor-pointer">[Trace Settings]</a> start & trace. !!
+  !! Go to <a href="#settings" onclick={(e) => { e.preventDefault(); dashboardStore.setSettingMode(true); }} class="underline hover:text-foreground cursor-pointer">[Trace Settings]</a> start & trace. !!
   </pre>
     </div>
 
@@ -117,7 +116,7 @@
         <Button
           variant="outline"
           class="w-full justify-center gap-2"
-          on:click={() => document.getElementById("upload-log-input").click()}
+          onclick={() => document.getElementById("upload-log-input").click()}
         >
           <FileUp class="size-4" />
           Import JSON Logs
@@ -127,7 +126,7 @@
         <Button
           variant="outline"
           class="w-full justify-center gap-2"
-          on:click={() => document.getElementById("upload-setting-input").click()}
+          onclick={() => document.getElementById("upload-setting-input").click()}
         >
           <Settings class="size-4" />
           Import Settings
@@ -149,7 +148,7 @@
                         ? "border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700"
                         : "border-border bg-card hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700"
                     )}
-                    on:click={() => applySettings(item)}
+                    onclick={() => applySettings(item)}
                   >
                     <div class="flex items-center gap-3">
                       <CirclePlay class={cn("size-5 shrink-0", $settingsLocalStorage.selected === item.id ? "text-blue-700 dark:text-blue-400" : "text-blue-600")} />
@@ -174,7 +173,7 @@
                       ? "border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700"
                       : "border-border bg-card hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700"
                   )}
-                  on:click={() => applySettings(item)}
+                  onclick={() => applySettings(item)}
                 >
                   <div class="flex items-center gap-3">
                     <CirclePlay class={cn("size-5 shrink-0", $settingsLocalStorage.selected === item.id ? "text-blue-700 dark:text-blue-400" : "text-blue-600")} />
@@ -196,7 +195,7 @@
           <Button
             variant="outline"
             class="w-full justify-center gap-2"
-            on:click={() => dashboardStore.setSettingMode(true)}
+            onclick={() => dashboardStore.setSettingMode(true)}
           >
             <Settings class="size-4" />
             Open Settings
@@ -204,7 +203,7 @@
           <Button
             variant="outline"
             class="w-full justify-center gap-2 text-red-600"
-            on:click={() => live.pushEvent("start-trace", {})}
+            onclick={() => live.pushEvent("start-trace", {})}
           >
             <Play class="size-4" />
             Start Trace

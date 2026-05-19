@@ -1,5 +1,6 @@
 <script>
   import { onMount, tick } from "svelte";
+  import { mount, unmount } from "svelte";
   import { toast } from "svelte-sonner";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
@@ -16,24 +17,59 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Copy, Check, Play, Terminal, Download, Trash2, X, CheckSquare, Square, ListFilter } from "lucide-svelte/icons";
+  import { Copy, Check, Play, Terminal, Download, Trash2, X, CheckSquare, Square, ListFilter } from "@lucide/svelte/icons";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import StringInspectDialog from "$lib/components/string_inspect_dialog.svelte";
   import Welcome from "./welcome.svelte";
 
-  export let live;
-  export let node_info = {};
-  export let isTracing = false;
+  let { live, node_info = {}, isTracing = false } = $props();
 
-  let items = [];
+  let items = $state([]);
 
   // Selection mode
-  $: selectingMode = $dashboardStore.selecting_mode;
-  $: selectedLogTimes = $dashboardStore.selected_log_times;
-  $: selectedCount = selectedLogTimes.size;
-  $: allVisibleSelected = visibleItems.length > 0 && visibleItems.every(i => selectedLogTimes.has(i.time));
+  let selectingMode = $derived($dashboardStore.selecting_mode);
+  let selectedLogTimes = $derived($dashboardStore.selected_log_times);
+  let selectedCount = $derived(selectedLogTimes.size);
+
+  // Derive available types from items and push to filterStore
+  let allTypes = $derived([...new Set(items.map(i => i.type))].sort());
+  $effect(() => {
+    filterStore.setAvailableTypes(allTypes);
+  });
+
+  // Derive available PIDs from items and push to filterStore
+  let allPids = $derived([...new Set(items.map(i => i.pid).filter(Boolean))].sort());
+  $effect(() => {
+    filterStore.setAvailablePids(allPids);
+  });
+
+  // Derive available MFAs from items and push to filterStore
+  let allMfas = $derived([...new Set(items.map(i => i.mfa).filter(Boolean))].sort());
+  $effect(() => {
+    filterStore.setAvailableMfas(allMfas);
+  });
+
+  // Filter items by hidden types, filter PIDs, and filter MFAs
+  let hiddenTypes = $derived($filterStore.hiddenTypes);
+  let filterPids = $derived($filterStore.filterPids);
+  let filterMfas = $derived($filterStore.filterMfas);
+  let visibleItems = $derived((() => {
+    let result = items;
+    if (hiddenTypes.length > 0) {
+      result = result.filter(i => !hiddenTypes.includes(i.type));
+    }
+    if (filterPids.length > 0) {
+      result = result.filter(i => i.pid && filterPids.includes(i.pid));
+    }
+    if (filterMfas.length > 0) {
+      result = result.filter(i => i.mfa && filterMfas.includes(i.mfa));
+    }
+    return result;
+  })());
+
+  let allVisibleSelected = $derived(visibleItems.length > 0 && visibleItems.every(i => selectedLogTimes.has(i.time)));
 
   function toggleSelectItem(e, item) {
     e.stopPropagation();
@@ -73,32 +109,6 @@
     URL.revokeObjectURL(link.href);
     dashboardStore.setSelectingMode(false);
   }
-
-  // Derive available types from items and push to filterStore
-  $: allTypes = [...new Set(items.map(i => i.type))].sort();
-  $: filterStore.setAvailableTypes(allTypes);
-
-  // Derive available MFAs from items and push to filterStore
-  $: allMfas = [...new Set(items.map(i => i.mfa).filter(Boolean))].sort();
-  $: filterStore.setAvailableMfas(allMfas);
-
-  // Filter items by hidden types, filter PIDs, and filter MFAs
-  $: hiddenTypes = $filterStore.hiddenTypes;
-  $: filterPids = $filterStore.filterPids;
-  $: filterMfas = $filterStore.filterMfas;
-  $: visibleItems = (() => {
-    let result = items;
-    if (hiddenTypes.length > 0) {
-      result = result.filter(i => !hiddenTypes.includes(i.type));
-    }
-    if (filterPids.length > 0) {
-      result = result.filter(i => i.pid && filterPids.includes(i.pid));
-    }
-    if (filterMfas.length > 0) {
-      result = result.filter(i => i.mfa && filterMfas.includes(i.mfa));
-    }
-    return result;
-  })();
 
   function get_dot_class(type) {
     return getDotClass(type);
@@ -365,7 +375,7 @@
   }
 
   // Context menu state for right-click on PID
-  let contextMenu = { show: false, x: 0, y: 0, pid: null };
+  let contextMenu = $state({ show: false, x: 0, y: 0, pid: null });
 
   function showContextMenu(e, pid) {
     if (!pid || selectingMode) return;
@@ -393,53 +403,47 @@
     }
   }
 
-  let pidCopied = {};
+  let pidCopied = $state({});
   let pidCopyTimeouts = {};
-  let pidTooltipOpen = {};
+  let pidTooltipOpen = $state({});
 
   function copyPid(e, key, pid) {
     e.stopPropagation();
     navigator.clipboard.writeText(pid);
     pidCopied[key] = true;
-    pidCopied = pidCopied;
     pidTooltipOpen[key] = true;
-    pidTooltipOpen = pidTooltipOpen;
     clearTimeout(pidCopyTimeouts[key]);
     pidCopyTimeouts[key] = setTimeout(() => {
       delete pidCopied[key];
-      pidCopied = pidCopied;
       pidTooltipOpen[key] = false;
-      pidTooltipOpen = pidTooltipOpen;
     }, 1500);
   }
 
-  let copied = false;
+  let copied = $state(false);
   let copyTimeout;
 
-  let recallCopied = {};
+  let recallCopied = $state({});
   let recallCopyTimeout = {};
 
   function copyRecallCli(item) {
     if (!item.trace_info) return;
     live.pushEvent("copy-recall-cli", { trace_info: item.trace_info }, ({ recall_cli }) => {
-      const app = new CopyClipBoard({
+      const app = mount(CopyClipBoard, {
         target: document.getElementById("clipboard"),
         props: { content: recall_cli.trim() },
       });
-      app.$destroy();
+      unmount(app);
       recallCopied[item.time] = true;
-      recallCopied = recallCopied;
       clearTimeout(recallCopyTimeout[item.time]);
       recallCopyTimeout[item.time] = setTimeout(() => {
         delete recallCopied[item.time];
-        recallCopied = recallCopied;
       }, 2000);
     });
   }
 
   let viewerIdCounter = 0;
-  let stringDialogOpen = false;
-  let stringInspectText = "";
+  let stringDialogOpen = $state(false);
+  let stringInspectText = $state("");
 
   function initViewer(node, content) {
     let currentContent = content;
@@ -469,11 +473,11 @@
   }
 
   function copyContent(content) {
-    const app = new CopyClipBoard({
+    const app = mount(CopyClipBoard, {
       target: document.getElementById("clipboard"),
       props: { content: content.trim() },
     });
-    app.$destroy();
+    unmount(app);
     copied = true;
     clearTimeout(copyTimeout);
     copyTimeout = setTimeout(() => { copied = false; }, 2000);
@@ -507,7 +511,7 @@
       </span>
       <button
         class="text-xs px-2 py-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400"
-        on:click={allVisibleSelected ? deselectAll : selectAll}
+        onclick={allVisibleSelected ? deselectAll : selectAll}
       >
         {allVisibleSelected ? "Deselect All" : "Select All"}
       </button>
@@ -517,12 +521,12 @@
         size="sm"
         class="gap-1.5"
         disabled={selectedCount === 0}
-        on:click={downloadSelectedLogsAction}
+        onclick={downloadSelectedLogsAction}
       >
         <Download class="size-3.5" />
         Download ({selectedCount})
       </Button>
-      <Button variant="ghost" size="sm" class="gap-1.5" on:click={cancelSelecting}>
+      <Button variant="ghost" size="sm" class="gap-1.5" onclick={cancelSelecting}>
         <X class="size-3.5" />
         Cancel
       </Button>
@@ -540,12 +544,12 @@
                 ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700"
                 : "hover:bg-accent"
           )}
-          on:click={(e) => selectingMode ? toggleSelectItem(e, item) : toggleLog(item)}
+          onclick={(e) => selectingMode ? toggleSelectItem(e, item) : toggleLog(item)}
         >
           <div class="flex items-start gap-2">
             {#if selectingMode}
-              <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-              <span class="shrink-0 mt-0.5 flex items-center" on:click|stopPropagation>
+              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+              <span role="presentation" class="shrink-0 mt-0.5 flex items-center" onclick={(e) => e.stopPropagation()}>
                 <Checkbox
                   checked={selectedLogTimes.has(item.time)}
                   onCheckedChange={() => dashboardStore.toggleLogSelection(item.time)}
@@ -553,10 +557,8 @@
               </span>
             {/if}
             <Tooltip.Root openDelay={200}>
-              <Tooltip.Trigger asChild let:builder>
+              <Tooltip.Trigger>
                 <span
-                  use:builder.action
-                  {...builder}
                   class="shrink-0 mt-1.5 inline-block size-2.5 rounded-full {get_dot_class(item.type)}"
                 ></span>
               </Tooltip.Trigger>
@@ -568,18 +570,16 @@
               "text-muted-foreground text-sm",
               selectingMode ? "line-clamp-2" : (item._expanded ? "" : "line-clamp-4")
             )}>
-              {format_log_time(item)}{" "}<Tooltip.Root bind:open={pidTooltipOpen[item.time]} openDelay={200}>
-                <Tooltip.Trigger asChild let:builder>
+              {format_log_time(item)}{" "}<Tooltip.Root open={pidTooltipOpen[item.time] ?? false} onOpenChange={(v) => { pidTooltipOpen[item.time] = v; }} openDelay={200}>
+                <Tooltip.Trigger>
                   <span
-                    use:builder.action
-                    {...builder}
                     role="button"
                     tabindex="-1"
                     class="cursor-pointer font-semibold hover:underline inline-flex items-center"
                     style="color: {pid_color(item.pid)}"
-                    on:click={(e) => { if (!selectingMode) copyPid(e, item.time, item.pid); }}
-                    on:contextmenu={(e) => showContextMenu(e, item.pid)}
-                    on:keydown={(e) => { if (!selectingMode && (e.key === 'Enter' || e.key === ' ')) copyPid(e, item.time, item.pid); }}
+                    onclick={(e) => { if (!selectingMode) copyPid(e, item.time, item.pid); }}
+                    oncontextmenu={(e) => showContextMenu(e, item.pid)}
+                    onkeydown={(e) => { if (!selectingMode && (e.key === 'Enter' || e.key === ' ')) copyPid(e, item.time, item.pid); }}
                   >{item.pid}</span>
                 </Tooltip.Trigger>
                 <Tooltip.Content side="top" class="text-xs px-2 py-1">
@@ -599,8 +599,8 @@
             )}>
               {#if item.type === "call" && item.trace_info}
                 <Tooltip.Root openDelay={200}>
-                  <Tooltip.Trigger asChild let:builder>
-                    <Button variant="ghost" size="icon" class="h-7 w-7" builders={[builder]} on:click={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
+                  <Tooltip.Trigger>
+                    <Button variant="ghost" size="icon" class="h-7 w-7" onclick={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
                       {#if recallCopied[item.time]}
                         <Check class="size-3.5 text-green-500" />
                       {:else}
@@ -613,7 +613,7 @@
                   </Tooltip.Content>
                 </Tooltip.Root>
               {/if}
-              <Button variant="ghost" size="icon" class="h-7 w-7" on:click={(e) => { e.stopPropagation(); copyContent(item.content); }}>
+              <Button variant="ghost" size="icon" class="h-7 w-7" onclick={(e) => { e.stopPropagation(); copyContent(item.content); }}>
                 {#if copied}
                   <Check class="size-3.5 text-green-500" />
                 {:else}
@@ -658,7 +658,7 @@
         <Button
           variant="outline"
           class="gap-2"
-          on:click={() => window.dispatchEvent(new CustomEvent("x:download-logs"))}
+          onclick={() => window.dispatchEvent(new CustomEvent("x:download-logs"))}
         >
           <Download class="size-4" />
           Download Logs
@@ -666,7 +666,7 @@
         <Button
           variant="outline"
           class="gap-2"
-          on:click={() => window.dispatchEvent(new CustomEvent("x:download-logs", { detail: { format: "json" } }))}
+          onclick={() => window.dispatchEvent(new CustomEvent("x:download-logs", { detail: { format: "json" } }))}
         >
           <Download class="size-4" />
           Download JSON
@@ -674,7 +674,7 @@
         <Button
           variant="outline"
           class="gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400"
-          on:click={() => window.dispatchEvent(new CustomEvent("x:clear-logs"))}
+          onclick={() => window.dispatchEvent(new CustomEvent("x:clear-logs"))}
         >
           <Trash2 class="size-4" />
           Clear Logs
@@ -682,7 +682,7 @@
         <Button
           variant="outline"
           class="gap-2 text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400"
-          on:click={() => live.pushEvent("start-trace", {})}
+          onclick={() => live.pushEvent("start-trace", {})}
         >
           <Play class="size-4" />
           Start Trace
@@ -699,19 +699,20 @@
 <StringInspectDialog bind:open={stringDialogOpen} rawString={stringInspectText} />
 
 {#if contextMenu.show}
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
+    role="menu"
+    tabindex="-1"
     class="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
     style="left: {contextMenu.x}px; top: {contextMenu.y}px;"
-    on:click|stopPropagation
+    onclick={(e) => e.stopPropagation()}
   >
     <button
       class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-      on:click={filterByPid}
+      onclick={filterByPid}
     >
       <ListFilter class="size-3.5" />
       Filter by PID <span class="ml-auto text-xs text-muted-foreground font-mono">{contextMenu.pid}</span>
     </button>
   </div>
 {/if}
-

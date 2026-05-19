@@ -1,36 +1,48 @@
 <script lang="ts">
 	import { Dialog as DialogPrimitive } from "bits-ui";
-	import X from "lucide-svelte/icons/x";
+	import DialogPortal from "./dialog-portal.svelte";
+	import type { Snippet } from "svelte";
 	import * as Dialog from "./index.js";
-	import { cn, flyAndScale } from "$lib/utils.js";
+	import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
+	import type { ComponentProps } from "svelte";
+	import { Button } from "$lib/components/ui/button/index.js";
+	import XIcon from '@lucide/svelte/icons/x';
 
-	type $$Props = DialogPrimitive.ContentProps;
-
-	let className: $$Props["class"] = undefined;
-	export let transition: $$Props["transition"] = flyAndScale;
-	export let transitionConfig: $$Props["transitionConfig"] = {
-		duration: 200,
-	};
-	export { className as class };
+	let {
+		ref = $bindable(null),
+		class: className,
+		portalProps,
+		children,
+		showCloseButton = true,
+		...restProps
+	}: WithoutChildrenOrChild<DialogPrimitive.ContentProps> & {
+		portalProps?: WithoutChildrenOrChild<ComponentProps<typeof DialogPortal>>;
+		children: Snippet;
+		showCloseButton?: boolean;
+	} = $props();
 </script>
 
-<Dialog.Portal>
+<DialogPortal {...portalProps}>
 	<Dialog.Overlay />
 	<DialogPrimitive.Content
-		{transition}
-		{transitionConfig}
+		bind:ref
+		data-slot="dialog-content"
 		class={cn(
-			"bg-background fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border p-6 shadow-lg sm:rounded-lg md:w-full",
+			"bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-closed:slide-out-to-top-[2%] data-open:slide-in-from-top-[2%] ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-4 rounded-xl p-4 text-sm ring-1 duration-200 sm:max-w-sm fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none",
 			className
 		)}
-		{...$$restProps}
+		{...restProps}
 	>
-		<slot />
-		<DialogPrimitive.Close
-			class="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none"
-		>
-			<X class="h-4 w-4" />
-			<span class="sr-only">Close</span>
-		</DialogPrimitive.Close>
+		{@render children?.()}
+		{#if showCloseButton}
+			<DialogPrimitive.Close data-slot="dialog-close">
+				{#snippet child({ props })}
+					<Button variant="ghost" class="absolute top-2 right-2" size="icon-sm" {...props}>
+						<XIcon  />
+						<span class="sr-only">Close</span>
+					</Button>
+				{/snippet}
+			</DialogPrimitive.Close>
+		{/if}
 	</DialogPrimitive.Content>
-</Dialog.Portal>
+</DialogPortal>

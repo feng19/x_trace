@@ -5,15 +5,17 @@
   import Switch from "$lib/components/switch.svelte";
   import ItemWithX from "$lib/components/item_with_x.svelte";
   import InfoHover from "$lib/components/info_hover.svelte";
-  import { Plus, X } from "lucide-svelte/icons";
+  import { Plus } from "@lucide/svelte/icons";
   import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
 
-  export let live;
-  export let scope;
-  export let pid;
-  export let add_pid_enable = false;
-  export let pids;
+  let {
+    live,
+    scope,
+    pid,
+    add_pid_enable = false,
+    pids,
+  } = $props();
 
   let scope_items = [
     { value: "local", label: "local" },
@@ -44,9 +46,9 @@
 </script>
 
 <div class="px-1 sm:px-2 space-y-4">
-  <div class="flex flex-col gap-3 sm:gap-4">
-    <div>
-      <div class="mb-1.5 flex items-center gap-1">
+  <div class="space-y-4">
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-1">
         <Label for="options_scope" class="text-xs sm:text-sm">Function Scope</Label>
         <InfoHover>
           <p class="text-sm font-medium mb-1">Function Scope</p>
@@ -74,12 +76,12 @@
         onValueChange={(value) => live.pushEvent("set-scope", value)}
       />
       {#if scope_descriptions[scope]}
-        <p class="mt-1 text-xs text-muted-foreground">{scope_descriptions[scope]}</p>
+        <p class="text-xs text-muted-foreground">{scope_descriptions[scope]}</p>
       {/if}
     </div>
 
-    <div>
-      <div class="mb-1.5 flex items-center gap-1">
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-1">
         <Label for="options_pid" class="text-xs sm:text-sm">Match Pids</Label>
         <InfoHover>
           <p class="text-sm font-medium mb-1">Argument Procs</p>
@@ -108,13 +110,13 @@
         onValueChange={(value) => live.pushEvent("set-pid", value)}
       />
       {#if pid_descriptions[pid]}
-        <p class="mt-1 text-xs text-muted-foreground">{pid_descriptions[pid]}</p>
+        <p class="text-xs text-muted-foreground">{pid_descriptions[pid]}</p>
       {/if}
     </div>
   </div>
 
-  {#if pid === "pid" && pids.length != 0}
-    <div class="inline-flex flex-wrap gap-2" transition:fade>
+  {#if pid === "pid" && pids.length !== 0}
+    <div class="flex flex-wrap gap-2" transition:fade>
       {#each pids as pid_item, index (pid_item)}
         <ItemWithX onClick={() => {}} onRemove={() => removePid(index)}>
           {pid_item}
@@ -127,12 +129,12 @@
     <form
       phx-change="validate-pid"
       phx-submit="add-pid"
-      class="grid grid-cols-2 gap-4"
+      class="grid grid-cols-[1fr,auto] gap-2"
       transition:fade
     >
       <Input name="pid" id="options_pid_input" placeholder="A.B.C" required />
       <Button
-        class="w-full flex items-center justify-center gap-2"
+        class="flex items-center gap-2"
         disabled={!add_pid_enable}
         type="submit"
       >

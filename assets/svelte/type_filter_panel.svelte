@@ -6,39 +6,46 @@
   import * as Popover from "$lib/components/ui/popover/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
-  import { ListFilter } from "lucide-svelte/icons";
+  import { ListFilter } from "@lucide/svelte/icons";
 
-  let open = false;
-  let pidInputValue = "";
-  let mfaInputValue = "";
-  let mfaDropdownIndex = -1;
+  let open = $state(false);
+  let pidInputValue = $state("");
+  let pidDropdownIndex = $state(-1);
+  let mfaInputValue = $state("");
+  let mfaDropdownIndex = $state(-1);
 
   // Type filter
-  $: hiddenTypes = $filterStore.hiddenTypes;
-  $: availableTypes = $filterStore.availableTypes;
-  $: hiddenTypeCount = hiddenTypes.length;
-  $: hasHiddenTypes = hiddenTypeCount > 0;
-  $: allTypesHidden = availableTypes.length > 0 && hiddenTypeCount >= availableTypes.length;
+  let hiddenTypes = $derived($filterStore.hiddenTypes);
+  let availableTypes = $derived($filterStore.availableTypes);
+  let hiddenTypeCount = $derived(hiddenTypes.length);
+  let hasHiddenTypes = $derived(hiddenTypeCount > 0);
+  let allTypesHidden = $derived(availableTypes.length > 0 && hiddenTypeCount >= availableTypes.length);
 
   // PID filter
-  $: filterPids = $filterStore.filterPids;
-  $: filterPidCount = filterPids.length;
-  $: hasFilterPids = filterPidCount > 0;
+  let filterPids = $derived($filterStore.filterPids);
+  let availablePids = $derived($filterStore.availablePids);
+  let filterPidCount = $derived(filterPids.length);
+  let hasFilterPids = $derived(filterPidCount > 0);
+
+  // PID dropdown items: available PIDs minus already-filtered, filtered by input text
+  let pidDropdownItems = $derived(availablePids.filter(
+    (p) => !filterPids.includes(p) && (pidInputValue === "" || p.toLowerCase().includes(pidInputValue.toLowerCase()))
+  ));
 
   // MFA filter
-  $: filterMfas = $filterStore.filterMfas;
-  $: availableMfas = $filterStore.availableMfas;
-  $: filterMfaCount = filterMfas.length;
-  $: hasFilterMfas = filterMfaCount > 0;
+  let filterMfas = $derived($filterStore.filterMfas);
+  let availableMfas = $derived($filterStore.availableMfas);
+  let filterMfaCount = $derived(filterMfas.length);
+  let hasFilterMfas = $derived(filterMfaCount > 0);
 
   // MFA dropdown items: available MFAs minus already-filtered, filtered by input text
-  $: mfaDropdownItems = availableMfas.filter(
+  let mfaDropdownItems = $derived(availableMfas.filter(
     (m) => !filterMfas.includes(m) && (mfaInputValue === "" || m.toLowerCase().includes(mfaInputValue.toLowerCase()))
-  );
+  ));
 
   // Combined count for badge
-  $: totalFilterCount = hiddenTypeCount + filterPidCount + filterMfaCount;
-  $: hasAnyFilter = totalFilterCount > 0;
+  let totalFilterCount = $derived(hiddenTypeCount + filterPidCount + filterMfaCount);
+  let hasAnyFilter = $derived(totalFilterCount > 0);
 
   function isTypeChecked(type) {
     return !hiddenTypes.includes(type);
@@ -56,12 +63,10 @@
     filterStore.hideAllTypes();
   }
 
-  function addPid() {
-    const pid = pidInputValue.trim();
-    if (pid) {
-      filterStore.addFilterPid(pid);
-      pidInputValue = "";
-    }
+  function selectPid(pid) {
+    filterStore.addFilterPid(pid);
+    pidInputValue = "";
+    pidDropdownIndex = -1;
   }
 
   function removePid(pid) {
@@ -71,12 +76,43 @@
   function clearPids() {
     filterStore.clearFilterPids();
     pidInputValue = "";
+    pidDropdownIndex = -1;
+  }
+
+  function onPidInput() {
+    pidDropdownIndex = -1;
   }
 
   function handlePidKeyDown(e) {
-    if (e.key === "Enter") {
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      addPid();
+      e.stopPropagation();
+      if (pidDropdownItems.length > 0) {
+        pidDropdownIndex = Math.min(pidDropdownIndex + 1, pidDropdownItems.length - 1);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pidDropdownIndex > 0) {
+        pidDropdownIndex = pidDropdownIndex - 1;
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (pidDropdownIndex >= 0 && pidDropdownIndex < pidDropdownItems.length) {
+        selectPid(pidDropdownItems[pidDropdownIndex]);
+      } else if (pidInputValue.trim()) {
+        // Try exact match (case-insensitive) or add as-is
+        const match = availablePids.find(
+          (p) => p.toLowerCase() === pidInputValue.trim().toLowerCase()
+        );
+        if (match && !filterPids.includes(match)) {
+          selectPid(match);
+        } else if (!filterPids.includes(pidInputValue.trim())) {
+          // Allow manually typed PIDs not in the available list
+          selectPid(pidInputValue.trim());
+        }
+      }
     } else if (e.key === "Backspace" && pidInputValue === "" && filterPids.length > 0) {
       removePid(filterPids[filterPids.length - 1]);
     }
@@ -136,11 +172,10 @@
 </script>
 
 <Popover.Root bind:open>
-  <Popover.Trigger asChild let:builder>
+  <Popover.Trigger>
     <Tooltip.Root openDelay={0}>
-      <Tooltip.Trigger asChild let:builder={tooltipBuilder}>
+      <Tooltip.Trigger>
         <Button
-          builders={[builder, tooltipBuilder]}
           variant="ghost"
           size="icon"
           class="size-9 shrink-0 relative"
@@ -168,10 +203,10 @@
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium">Type</span>
         <div class="flex items-center gap-1">
-          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={selectAllTypes} disabled={!hasHiddenTypes}>
+          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={selectAllTypes} disabled={!hasHiddenTypes}>
             All
           </Button>
-          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={deselectAllTypes} disabled={allTypesHidden}>
+          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={deselectAllTypes} disabled={allTypesHidden}>
             None
           </Button>
         </div>
@@ -183,7 +218,7 @@
           {#each availableTypes as type (type)}
             <button
               class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent transition-colors"
-              on:click={() => onToggleType(type)}
+              onclick={() => onToggleType(type)}
             >
               <Checkbox
                 checked={isTypeChecked(type)}
@@ -214,31 +249,48 @@
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium">PID</span>
         {#if hasFilterPids}
-          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={clearPids}>
+          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={clearPids}>
             Clear
           </Button>
         {/if}
       </div>
 
-      <!-- PID input with tags -->
-      <div class="flex flex-wrap items-center gap-1 rounded-md border border-input bg-background px-2 py-1.5 min-h-[36px]">
-        {#each filterPids as pid (pid)}
-          <Badge variant="secondary" class="gap-1 pl-2 pr-1 py-0.5 text-xs font-mono">
-            {pid}
-            <button
-              class="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5 leading-none"
-              on:click|stopPropagation={() => removePid(pid)}
-            >
-              ✕
-            </button>
-          </Badge>
-        {/each}
-        <input
-          bind:value={pidInputValue}
-          on:keydown={handlePidKeyDown}
-          class="flex-1 min-w-[60px] bg-transparent text-sm outline-none placeholder:text-muted-foreground font-mono"
-          placeholder={filterPids.length === 0 ? "Paste PID to filter…" : "Add PID…"}
-        />
+      <!-- PID input with dropdown and tags -->
+      <div class="relative">
+        <div class="flex flex-wrap items-center gap-1 rounded-md border border-input bg-background px-2 py-1.5 min-h-[36px]">
+          {#each filterPids as pid (pid)}
+            <Badge variant="secondary" class="gap-1 pl-2 pr-1 py-0.5 text-xs font-mono">
+              {pid}
+              <button
+                class="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5 leading-none"
+                onclick={(e) => { e.stopPropagation(); removePid(pid); }}
+              >
+                ✕
+              </button>
+            </Badge>
+          {/each}
+          <input
+            bind:value={pidInputValue}
+            oninput={onPidInput}
+            onkeydown={handlePidKeyDown}
+            class="flex-1 min-w-[60px] bg-transparent text-sm outline-none placeholder:text-muted-foreground font-mono"
+            placeholder={filterPids.length === 0 ? "Filter by PID…" : "Add PID…"}
+          />
+        </div>
+
+        <!-- PID Dropdown -->
+        {#if open && pidInputValue && pidDropdownItems.length > 0}
+          <div class="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-md max-h-48 overflow-y-auto">
+            {#each pidDropdownItems as item, i (item)}
+              <button
+                class="w-full px-3 py-1.5 text-sm text-left font-mono hover:bg-accent hover:text-accent-foreground {i === pidDropdownIndex ? 'bg-accent text-accent-foreground' : ''}"
+                onmousedown={(e) => { e.preventDefault(); selectPid(item); }}
+              >
+                {item}
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <!-- PID Info -->
@@ -259,7 +311,7 @@
       <div class="flex items-center justify-between">
         <span class="text-sm font-medium">MFA</span>
         {#if hasFilterMfas}
-          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" on:click={clearMfas}>
+          <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={clearMfas}>
             Clear
           </Button>
         {/if}
@@ -273,7 +325,7 @@
               {mfa}
               <button
                 class="ml-0.5 rounded-sm hover:bg-muted-foreground/20 p-0.5 leading-none"
-                on:click|stopPropagation={() => removeMfa(mfa)}
+                onclick={(e) => { e.stopPropagation(); removeMfa(mfa); }}
               >
                 ✕
               </button>
@@ -281,8 +333,8 @@
           {/each}
           <input
             bind:value={mfaInputValue}
-            on:input={onMfaInput}
-            on:keydown={handleMfaKeyDown}
+            oninput={onMfaInput}
+            onkeydown={handleMfaKeyDown}
             class="flex-1 min-w-[60px] bg-transparent text-sm outline-none placeholder:text-muted-foreground font-mono"
             placeholder={filterMfas.length === 0 ? "Filter by MFA…" : "Add MFA…"}
           />
@@ -294,7 +346,7 @@
             {#each mfaDropdownItems as item, i (item)}
               <button
                 class="w-full px-3 py-1.5 text-sm text-left font-mono hover:bg-accent hover:text-accent-foreground {i === mfaDropdownIndex ? 'bg-accent text-accent-foreground' : ''}"
-                on:mousedown|preventDefault={() => selectMfa(item)}
+                onmousedown={(e) => { e.preventDefault(); selectMfa(item); }}
               >
                 {item}
               </button>

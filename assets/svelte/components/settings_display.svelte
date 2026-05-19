@@ -9,31 +9,34 @@
    * @prop {string} options - options value
    * @prop {boolean} compact - compact mode for cards (smaller text, tighter spacing)
    */
-  import { Copy, Check } from "lucide-svelte/icons";
+  import CopyIcon from "@lucide/svelte/icons/copy";
+  import CheckIcon from "@lucide/svelte/icons/check";
   import { toast } from "svelte-sonner";
 
-  export let tSpecs = [];
-  export let max = "";
-  export let options = "";
-  export let compact = false;
+  let {
+    tSpecs = [],
+    max = "",
+    options = "",
+    compact = false,
+  } = $props();
 
-  $: labelClass = compact
+  let labelClass = $derived(compact
     ? "font-bold text-xs mb-0.5"
-    : "font-bold text-sm mb-1";
-  $: boxClass = compact
+    : "font-bold text-sm mb-1");
+  let boxClass = $derived(compact
     ? "relative rounded-md border bg-muted/50 p-2"
-    : "relative rounded-md border bg-muted/50 p-3";
-  $: preClass = compact
+    : "relative rounded-md border bg-muted/50 p-3");
+  let preClass = $derived(compact
     ? "text-xs text-wrap break-all whitespace-pre-wrap pr-6"
-    : "text-sm text-wrap break-all whitespace-pre-wrap pr-7";
-  $: gapClass = compact ? "space-y-2" : "space-y-4";
-  $: iconSize = compact ? "size-3" : "size-3.5";
-  $: btnClass = compact
+    : "text-sm text-wrap break-all whitespace-pre-wrap pr-7");
+  let gapClass = $derived(compact ? "space-y-2" : "space-y-4");
+  let iconSize = $derived(compact ? "size-3" : "size-3.5");
+  let btnClass = $derived(compact
     ? "absolute top-1 right-1 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-    : "absolute top-1.5 right-1.5 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors";
+    : "absolute top-1.5 right-1.5 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors");
 
   // Track which field was just copied
-  let copied = "";
+  let copied = $state("");
   let timer;
 
   function copyText(field, text) {
@@ -60,12 +63,12 @@
       <button
         class={btnClass}
         title="Copy TSpecs"
-        on:click={() => copyText("tspecs", tSpecsText(tSpecs))}
+        onclick={() => copyText("tspecs", tSpecsText(tSpecs))}
       >
         {#if copied === "tspecs"}
-          <Check class={iconSize} />
+          <CheckIcon class={iconSize} />
         {:else}
-          <Copy class={iconSize} />
+          <CopyIcon class={iconSize} />
         {/if}
       </button>
       {#if !tSpecs || tSpecs.length === 0 || tSpecs === 0}
@@ -88,12 +91,12 @@
       <button
         class={btnClass}
         title="Copy Rate-Limiting"
-        on:click={() => copyText("max", max || "N/A")}
+        onclick={() => copyText("max", max || "N/A")}
       >
         {#if copied === "max"}
-          <Check class={iconSize} />
+          <CheckIcon class={iconSize} />
         {:else}
-          <Copy class={iconSize} />
+          <CopyIcon class={iconSize} />
         {/if}
       </button>
       <pre class={preClass}>{max || "N/A"}</pre>
@@ -106,12 +109,12 @@
       <button
         class={btnClass}
         title="Copy Options"
-        on:click={() => copyText("options", options || "N/A")}
+        onclick={() => copyText("options", options || "N/A")}
       >
         {#if copied === "options"}
-          <Check class={iconSize} />
+          <CheckIcon class={iconSize} />
         {:else}
-          <Copy class={iconSize} />
+          <CopyIcon class={iconSize} />
         {/if}
       </button>
       <pre class={preClass}>{options || "N/A"}</pre>

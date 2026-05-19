@@ -2,18 +2,21 @@
   import * as Select from "$lib/components/ui/select/index.js";
   import { Badge } from "$lib/components/ui/badge/index.js";
   import { toast } from "svelte-sonner";
-  import { slide } from 'svelte/transition';
+  import { slide, fade } from 'svelte/transition';
+  import { Monitor, CircleDot } from "@lucide/svelte/icons";
 
-  export let live;
-  export let nodeList = [];
-  export let selectedNode = null;
+  let { live, nodeList = [], selectedNode = $bindable("") } = $props();
+  let switching = $state(false);
 
-  function onSwitchNode(e) {
-    let selected = e?.value
+  function onSwitchNode(value) {
+    if (!value || value === selectedNode) return;
+    switching = true;
+
     const promise = new Promise((resolve, reject) => {
-      live.pushEvent("switch-node", e.value, (e) => {
+      live.pushEvent("switch-node", {node: value}, (e) => {
+        switching = false;
         if (e.code == 0) {
-          selectedNode = selected;
+          selectedNode = value;
           resolve(e.msg);
         } else {
           reject(e.msg);
@@ -22,45 +25,45 @@
     });
 
     toast.promise(promise, {
-      loading: "Loading...",
-      success: (message) => {
-        return message;
-      },
-      error: (message) => {
-        return message;
-      },
+      loading: "Switching node…",
+      success: (message) => message,
+      error: (message) => message,
     });
   }
 </script>
 
 {#if nodeList.length > 1}
-<Select.Root portal={null} selected={selectedNode} onSelectedChange={onSwitchNode} >
-  <Select.Trigger
-    class="flex items-center gap-2 [&>span]:line-clamp-1 [&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:gap-1 [&>span]:truncate [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0"
-    aria-label="Select node"
-  >
-    <span class="pointer-events-none">
-      <div class="w-full ml-2 flex items-center justify-between">
-        <span>
-          {selectedNode}
-        </span>
-        <Badge variant="outline">
+{#key nodeList.join(",")}
+<div in:fade={{ duration: 150 }}>
+  <Select.Root type="single" value={selectedNode ?? ""} onValueChange={onSwitchNode}>
+    <Select.Trigger
+      class="w-full h-11 gap-2 px-4 py-2.5 truncate rounded-lg border-border/60 hover:border-border transition-colors"
+      aria-label="Select node"
+      disabled={switching}
+    >
+      <div class="flex w-full items-center gap-2.5 truncate">
+        <Monitor class="size-4 shrink-0 text-muted-foreground" />
+        <span class="truncate text-sm font-medium">{selectedNode}</span>
+        <Badge variant="secondary" class="ml-auto shrink-0 tabular-nums text-[10px] px-1.5 h-4">
           {#key nodeList.length}
           <span in:slide>{nodeList.length}</span>
           {/key}
         </Badge>
       </div>
-    </span>
-  </Select.Trigger>
-  <Select.Content>
-    <Select.Group>
-      {#each nodeList as node}
-      <Select.Item value={node} label={node}>
-        {node}
-      </Select.Item>
-      {/each}
-    </Select.Group>
-  </Select.Content>
-  <Select.Input hidden name="node" />
-</Select.Root>
+    </Select.Trigger>
+    <Select.Content class="min-w-[var(--bits-select-trigger-width)] p-1.5">
+      <Select.Group>
+        {#each nodeList as node}
+        <Select.Item value={node} label={node} class="px-3 py-2">
+          <span class="flex items-center gap-2.5">
+            <CircleDot class="size-3.5 {node === selectedNode ? 'text-emerald-500' : 'text-muted-foreground/40'}" />
+            <span class="truncate">{node}</span>
+          </span>
+        </Select.Item>
+        {/each}
+      </Select.Group>
+    </Select.Content>
+  </Select.Root>
+</div>
+{/key}
 {/if}

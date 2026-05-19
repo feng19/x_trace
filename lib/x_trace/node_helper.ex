@@ -65,7 +65,7 @@ defmodule XTrace.NodeHelper do
       connected_node: connected_node,
       local_node: local_node,
       is_self: is_self,
-      node_list: [local_node | node_list],
+      node_list: Enum.map([local_node | node_list], &Atom.to_string/1),
       domain_list: domain_list,
       code_mode: code_mode
     }

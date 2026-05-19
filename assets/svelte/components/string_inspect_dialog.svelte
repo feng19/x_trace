@@ -3,28 +3,29 @@
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Input } from "$lib/components/ui/input/index.js";
-  import { Copy, Check, Search, ChevronUp, ChevronDown, CaseSensitive } from "lucide-svelte/icons";
+  import { Copy, Check, Search, ChevronUp, ChevronDown, CaseSensitive } from "@lucide/svelte/icons";
   import { elixirStringToPuts } from "../elixir_string_utils.js";
-  import { onMount, afterUpdate, tick } from "svelte";
+  import { onMount, tick } from "svelte";
   import { mode } from "../dark_mode.js";
 
-  export let open = false;
-  export let rawString = "";
+  let {
+    open = $bindable(false),
+    rawString = "",
+  } = $props();
 
-  let copied = false;
+  let copied = $state(false);
   let copyTimeout;
 
   // markdown-it + Lumis state
-  let md = null;
-  let lumisReady = false;
-  let currentLightTheme = null;
-  let currentDarkTheme = null;
+  let md = $state(null);
+  let lumisReady = $state(false);
+  let currentLightTheme = $state(null);
+  let currentDarkTheme = $state(null);
 
   // Search state
-  let searchQuery = "";
-  let caseSensitive = false;
-  let currentMatchIndex = 0;
-  let matchCount = 0;
+  let searchQuery = $state("");
+  let caseSensitive = $state(false);
+  let currentMatchIndex = $state(0);
   let searchInputEl;
 
   // Content container refs for scrolling
@@ -96,9 +97,9 @@
     }
   });
 
-  $: putsResult = elixirStringToPuts(rawString);
-  // Re-render whenever putsResult, lumisReady, or $mode changes
-  $: markdownHtml = renderMarkdown(putsResult, lumisReady, $mode);
+  let putsResult = $derived(elixirStringToPuts(rawString));
+  // Re-render whenever putsResult, lumisReady, or mode changes
+  let markdownHtml = $derived(renderMarkdown(putsResult, lumisReady, mode.current));
 
   const COPY_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`;
   const CHECK_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
@@ -172,18 +173,16 @@
     copyTimeout = setTimeout(() => { copied = false; }, 2000);
   }
 
-  let activeTab = "raw";
+  let activeTab = $state("raw");
 
-  $: currentCopyText = activeTab === "raw" ? rawString : putsResult;
+  let currentCopyText = $derived(activeTab === "raw" ? rawString : putsResult);
 
   // --- Search logic ---
 
-  // Get the text content for the current tab
-  function getSearchText() {
-    if (activeTab === "raw") return rawString;
-    if (activeTab === "puts") return putsResult;
-    // For markdown, search on the putsResult (source text)
-    return putsResult;
+  // Helper to make search text reactive to tab changes
+  function getSearchTextReactive(tab, raw, puts) {
+    if (tab === "raw") return raw;
+    return puts;
   }
 
   // Find all match positions in a string
@@ -201,22 +200,18 @@
   }
 
   // Reactive: compute matches whenever search params or tab changes
-  $: searchText = getSearchText();
-  // Need to be reactive to activeTab, searchQuery, caseSensitive
-  $: matches = searchQuery ? findMatches(getSearchTextReactive(activeTab, rawString, putsResult), searchQuery, caseSensitive) : [];
-  $: matchCount = matches.length;
-  $: if (matchCount > 0 && currentMatchIndex >= matchCount) {
-    currentMatchIndex = 0;
-  }
-  $: if (matchCount === 0) {
-    currentMatchIndex = 0;
-  }
+  let matches = $derived(searchQuery ? findMatches(getSearchTextReactive(activeTab, rawString, putsResult), searchQuery, caseSensitive) : []);
+  let matchCount = $derived(matches.length);
 
-  // Helper to make search text reactive to tab changes
-  function getSearchTextReactive(tab, raw, puts) {
-    if (tab === "raw") return raw;
-    return puts;
-  }
+  // Clamp currentMatchIndex when matchCount changes
+  $effect(() => {
+    if (matchCount > 0 && currentMatchIndex >= matchCount) {
+      currentMatchIndex = 0;
+    }
+    if (matchCount === 0) {
+      currentMatchIndex = 0;
+    }
+  });
 
   // Build highlighted HTML for plain text tabs (raw, puts)
   function buildHighlightedHtml(text, query, isCaseSensitive, currentIdx) {
@@ -242,8 +237,8 @@
   }
 
   // Reactive highlighted HTML for raw and puts tabs
-  $: highlightedRawHtml = buildHighlightedHtml(rawString, searchQuery, caseSensitive, activeTab === "raw" ? currentMatchIndex : -1);
-  $: highlightedPutsHtml = buildHighlightedHtml(putsResult, searchQuery, caseSensitive, activeTab === "puts" ? currentMatchIndex : -1);
+  let highlightedRawHtml = $derived(buildHighlightedHtml(rawString, searchQuery, caseSensitive, activeTab === "raw" ? currentMatchIndex : -1));
+  let highlightedPutsHtml = $derived(buildHighlightedHtml(putsResult, searchQuery, caseSensitive, activeTab === "puts" ? currentMatchIndex : -1));
 
   // Navigation
   function goToNextMatch() {
@@ -388,31 +383,37 @@
   }
 
   // When dialog closes, reset search
-  $: if (!open) {
-    searchQuery = "";
-    currentMatchIndex = 0;
-  }
+  $effect(() => {
+    if (!open) {
+      searchQuery = "";
+      currentMatchIndex = 0;
+    }
+  });
 
   // When search query changes, reset to first match
-  $: if (searchQuery !== undefined) {
+  $effect(() => {
+    searchQuery;
     currentMatchIndex = 0;
-  }
+  });
 
   // When tab changes, reset match index
-  $: if (activeTab) {
+  $effect(() => {
+    activeTab;
     currentMatchIndex = 0;
-  }
+  });
 
   // Scroll to match after highlight updates
-  $: if (searchQuery && matchCount > 0) {
-    // Trigger scroll after DOM updates
-    tick().then(() => scrollToCurrentMatch());
-  }
+  $effect(() => {
+    if (searchQuery && matchCount > 0) {
+      // Trigger scroll after DOM updates
+      tick().then(() => scrollToCurrentMatch());
+    }
+  });
 </script>
 
-<!-- svelte-ignore a11y-no-static-element-interactions -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <Dialog.Root bind:open>
-  <Dialog.Content class="max-w-4xl 2xl:max-w-6xl flex flex-col max-h-[85vh] 2xl:max-h-[90vh]" on:keydown={handleDialogKeydown}>
+  <Dialog.Content class="max-w-4xl 2xl:max-w-6xl flex flex-col max-h-[85vh] 2xl:max-h-[90vh]" onkeydown={handleDialogKeydown}>
     <Dialog.Header class="flex-shrink-0">
       <Dialog.Title>String Inspector</Dialog.Title>
       <Dialog.Description>
@@ -432,7 +433,7 @@
           <input
             bind:this={searchInputEl}
             bind:value={searchQuery}
-            on:keydown={handleSearchKeydown}
+            onkeydown={handleSearchKeydown}
             type="text"
             placeholder="Search..."
             class="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
@@ -446,7 +447,7 @@
             variant="ghost"
             size="icon"
             class="h-6 w-6 shrink-0 {caseSensitive ? 'bg-accent text-accent-foreground' : ''}"
-            on:click={() => { caseSensitive = !caseSensitive; }}
+            onclick={() => { caseSensitive = !caseSensitive; }}
             title="Match Case"
           >
             <CaseSensitive class="size-3.5" />
@@ -455,7 +456,7 @@
             variant="ghost"
             size="icon"
             class="h-6 w-6 shrink-0"
-            on:click={goToPrevMatch}
+            onclick={goToPrevMatch}
             disabled={matchCount === 0}
             title="Previous Match (Shift+Enter)"
           >
@@ -465,7 +466,7 @@
             variant="ghost"
             size="icon"
             class="h-6 w-6 shrink-0"
-            on:click={goToNextMatch}
+            onclick={goToNextMatch}
             disabled={matchCount === 0}
             title="Next Match (Enter)"
           >
@@ -476,7 +477,7 @@
           variant="ghost"
           size="icon"
           class="h-8 w-8 shrink-0"
-          on:click={() => copyToClipboard(currentCopyText)}
+          onclick={() => copyToClipboard(currentCopyText)}
         >
           {#if copied}
             <Check class="size-4 text-green-500" />
@@ -498,14 +499,14 @@
         </div>
       </Tabs.Content>
 
-      <!-- svelte-ignore a11y-click-events-have-key-events -->
-      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <Tabs.Content value="markdown" class="flex-1 min-h-0 mt-2">
         <div class="h-full overflow-y-auto max-h-[60vh] 2xl:max-h-[74vh]" bind:this={markdownContentEl}>
           <div
             class="prose prose-sm dark:prose-invert max-w-none p-2 rounded-md bg-muted markdown-content"
             use:highlightDom={{ query: searchQuery, caseSensitive, currentMatchIndex: activeTab === "markdown" ? currentMatchIndex : -1 }}
-            on:click={handleMarkdownClick}
+            onclick={handleMarkdownClick}
           >
             {#if !lumisReady}
               <div class="flex items-center gap-2 text-muted-foreground text-sm">

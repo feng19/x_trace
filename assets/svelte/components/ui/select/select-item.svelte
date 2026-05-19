@@ -1,40 +1,38 @@
 <script lang="ts">
-	import Check from "lucide-svelte/icons/check";
 	import { Select as SelectPrimitive } from "bits-ui";
-	import { cn } from "$lib/utils.js";
+	import { cn, type WithoutChild } from "$lib/utils.js";
+	import CheckIcon from '@lucide/svelte/icons/check';
 
-	type $$Props = SelectPrimitive.ItemProps;
-	type $$Events = SelectPrimitive.ItemEvents;
-
-	let className: $$Props["class"] = undefined;
-	export let value: $$Props["value"];
-	export let label: $$Props["label"] = undefined;
-	export let disabled: $$Props["disabled"] = undefined;
-	export { className as class };
+	let {
+		ref = $bindable(null),
+		class: className,
+		value,
+		label,
+		children: childrenProp,
+		...restProps
+	}: WithoutChild<SelectPrimitive.ItemProps> = $props();
 </script>
 
 <SelectPrimitive.Item
+	bind:ref
 	{value}
-	{disabled}
-	{label}
+	data-slot="select-item"
 	class={cn(
-		"data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+		"focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 focus:bg-accent data-highlighted:bg-accent data-highlighted:text-accent-foreground focus:text-accent-foreground relative flex w-full cursor-default items-center outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
 		className
 	)}
-	{...$$restProps}
-	on:click
-	on:keydown
-	on:focusin
-	on:focusout
-	on:pointerleave
-	on:pointermove
+	{...restProps}
 >
-	<span class="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-		<SelectPrimitive.ItemIndicator>
-			<Check class="h-4 w-4" />
-		</SelectPrimitive.ItemIndicator>
-	</span>
-	<slot>
-		{label || value}
-	</slot>
+	{#snippet children({ selected, highlighted })}
+		<span class="absolute end-2 flex size-3.5 items-center justify-center">
+			{#if selected}
+				<CheckIcon class="cn-select-item-indicator-icon" />
+			{/if}
+		</span>
+		{#if childrenProp}
+			{@render childrenProp({ selected, highlighted })}
+		{:else}
+			{label || value}
+		{/if}
+	{/snippet}
 </SelectPrimitive.Item>
