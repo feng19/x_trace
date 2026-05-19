@@ -9,7 +9,7 @@
   import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, FileUp, Play, Settings } from "@lucide/svelte/icons";
   import NodeSwitcher from "./node_switcher.svelte";
 
-  let { live, node_info = {} } = $props();
+  let { live, node_info = {}, version = "" } = $props();
 
   function applySettings(item) {
     settingsLocalStorage.select(item.id);
@@ -18,6 +18,11 @@
 </script>
 
 <div class="flex flex-col items-center px-4" in:fade out:blur>
+  <!-- Version -->
+  {#if version}
+    <div class="mb-2 text-xs text-muted-foreground/60 font-mono">xTrace v{version}</div>
+  {/if}
+
   <!-- Links -->
   <div
     class="mb-6 flex gap-4 items-center text-center text-sm text-muted-foreground"

@@ -454,10 +454,12 @@ defmodule XTraceWeb.TraceLive do
 
   defp default_assigns(socket, node_info) do
     rate_limiting = %{max: 10, milliseconds: 1000}
+    version = to_string(Application.spec(:x_trace, :vsn) || "dev")
 
     socket
     |> assign(t_specs: [], pids: [])
     |> assign(:node_info, node_info)
+    |> assign(:version, version)
     |> assign(:trace_settings, %{
       t_specs: [],
       max: format_rate_limiting(rate_limiting),

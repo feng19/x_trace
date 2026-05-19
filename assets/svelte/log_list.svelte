@@ -24,7 +24,7 @@
   import StringInspectDialog from "$lib/components/string_inspect_dialog.svelte";
   import Welcome from "./welcome.svelte";
 
-  let { live, node_info = {}, isTracing = false } = $props();
+  let { live, node_info = {}, isTracing = false, version = "" } = $props();
 
   let items = $state([]);
 
@@ -692,7 +692,7 @@
   </div>
 
   {#if items.length == 0}
-    <Welcome {live} {node_info} />
+    <Welcome {live} {node_info} {version} />
   {/if}
 </div>
 

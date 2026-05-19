@@ -17,12 +17,29 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import {
     Sun, Moon, Settings, ArrowLeft,
-    Play, SquareX,
+    Play, SquareX, ArrowDown,
   } from "@lucide/svelte/icons";
 
-  let { live, node_info, trace_settings, rate_limiting, options_settings, op_status } = $props();
+  let { live, node_info, trace_settings, rate_limiting, options_settings, op_status, version } = $props();
 
   let defaultLayout = [25, 75];
+
+  // Scroll-to-bottom floating button state
+  let logsViewportRef = $state(null);
+  let showScrollToBottom = $state(false);
+
+  function checkScrollPosition() {
+    if (!logsViewportRef) return;
+    const { scrollTop, scrollHeight, clientHeight } = logsViewportRef;
+    const threshold = 100;
+    showScrollToBottom = scrollTop + clientHeight < scrollHeight - threshold;
+  }
+
+  function scrollToBottom() {
+    if (!logsViewportRef) return;
+    logsViewportRef.scrollTo({ top: logsViewportRef.scrollHeight, behavior: "smooth" });
+    dashboardStore.setLog(null); // re-enables auto_scroll
+  }
 
   let startTraceItem = $derived({
     show: op_status.start_trace !== "hidden",
@@ -44,6 +61,18 @@
     console.log(data);
     dashboardStore.update((obj) => ({ ...obj, ...data }));
   }
+
+  // Listen for scroll events on the logs viewport to show/hide scroll-to-bottom button
+  $effect(() => {
+    const vp = logsViewportRef;
+    if (!vp) return;
+    vp.addEventListener("scroll", checkScrollPosition, { passive: true });
+    // Check initial position
+    checkScrollPosition();
+    return () => {
+      vp.removeEventListener("scroll", checkScrollPosition);
+    };
+  });
 
   onMount(() => {
     live.handleEvent("update_store", onUpdateStore);
@@ -204,6 +233,7 @@
     <ScrollArea
       id="logs-container-s"
       class="h-screen overflow-y-auto overscroll-y-auto grid grid-cols-1"
+      bind:viewportRef={logsViewportRef}
     >
       <div class="sticky top-0 z-50 bg-background">
         <div class="px-2 h-[52px] flex items-center gap-1">
@@ -259,7 +289,7 @@
         </div>
       {/if}
       <div class:hidden={$dashboardStore.setting_mode}>
-        <LogList {live} {node_info} {isTracing} />
+        <LogList {live} {node_info} {isTracing} {version} />
       </div>
       <input
         type="file"
@@ -276,6 +306,21 @@
         accept=".json"
       />
       <div id="clipboard"></div>
+      {#if showScrollToBottom && !$dashboardStore.setting_mode}
+        <div class="sticky bottom-4 z-40 flex justify-end pr-4 pointer-events-none">
+          <div transition:fly={{ y: 20, duration: 200 }}>
+            <Button
+              variant="outline"
+              size="icon"
+              class="pointer-events-auto size-9 rounded-full shadow-lg bg-background/90 backdrop-blur-sm hover:bg-accent"
+              onclick={scrollToBottom}
+            >
+              <ArrowDown class="size-4" />
+              <span class="sr-only">Scroll to bottom</span>
+            </Button>
+          </div>
+        </div>
+      {/if}
     </ScrollArea>
   </Resizable.Pane>
 </Resizable.PaneGroup>
