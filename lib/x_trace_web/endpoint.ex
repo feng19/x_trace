@@ -22,8 +22,9 @@ defmodule XTraceWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :x_trace,
-    gzip: false,
-    only: XTraceWeb.static_paths()
+    gzip: not code_reloading?,
+    only: XTraceWeb.static_paths(),
+    raise_on_missing_only: code_reloading?
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.

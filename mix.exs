@@ -9,6 +9,8 @@ defmodule XTrace.MixProject do
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      compilers: [:phoenix_live_view] ++ Mix.compilers(),
+      listeners: [Phoenix.CodeReloader],
       aliases: aliases(),
       deps: deps(),
       releases: releases()
@@ -16,7 +18,12 @@ defmodule XTrace.MixProject do
   end
 
   def cli do
-    [preferred_envs: [release: :prod]]
+    [
+      preferred_envs: [
+        precommit: :test,
+        release: :prod
+      ]
+    ]
   end
 
   # Configuration for the OTP application.
@@ -38,7 +45,7 @@ defmodule XTrace.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
-      {:phoenix, "~> 1.7.23"},
+      {:phoenix, "~> 1.8"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
@@ -70,7 +77,8 @@ defmodule XTrace.MixProject do
         "tailwind x_trace --minify",
         "cmd --cd assets node build.js --deploy",
         "phx.digest"
-      ]
+      ],
+      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
     ]
   end
 

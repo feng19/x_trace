@@ -38,9 +38,7 @@ defmodule XTraceWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller,
-        formats: [:html, :json],
-        layouts: [html: XTraceWeb.Layouts]
+      use Phoenix.Controller, formats: [:html, :json]
 
       import Plug.Conn
 
@@ -50,8 +48,7 @@ defmodule XTraceWeb do
 
   def live_view do
     quote do
-      use Phoenix.LiveView,
-        layout: {XTraceWeb.Layouts, :app}
+      use Phoenix.LiveView
 
       unquote(html_helpers())
     end
@@ -87,6 +84,7 @@ defmodule XTraceWeb do
       import LiveSvelte
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
+      alias XTraceWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

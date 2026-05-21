@@ -1,5 +1,7 @@
 <.svelte
   name="dashboard"
+  socket={@socket}
+  ssr={false}
   props={
     %{
       node_info: @node_info,
@@ -10,6 +12,4 @@
       version: @version
     }
   }
-  socket={@socket}
-  ssr={false}
 />
