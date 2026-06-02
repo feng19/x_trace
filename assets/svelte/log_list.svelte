@@ -1,6 +1,5 @@
 <script>
   import { onMount, tick } from "svelte";
-  import { mount, unmount } from "svelte";
   import { toast } from "svelte-sonner";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
@@ -19,7 +18,6 @@
   import { fade, blur, slide } from "svelte/transition";
   import { Copy, Check, Play, Terminal, Download, Trash2, X, CheckSquare, Square, ListFilter } from "@lucide/svelte/icons";
   import { Checkbox } from "$lib/components/ui/checkbox";
-  import CopyClipBoard from "$lib/components/copy_clipboard.svelte";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import StringInspectDialog from "$lib/components/string_inspect_dialog.svelte";
   import Welcome from "./welcome.svelte";
@@ -425,14 +423,39 @@
   let recallCopied = $state({});
   let recallCopyTimeout = {};
 
+  async function writeClipboard(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for insecure contexts (e.g. http://)
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "0";
+        ta.style.left = "0";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("execCommand copy failed");
+      }
+      toast.success("Copied");
+      return true;
+    } catch (err) {
+      console.error("Copy failed", err);
+      toast.error("Copy failed");
+      return false;
+    }
+  }
+
   function copyRecallCli(item) {
     if (!item.trace_info) return;
-    live.pushEvent("copy-recall-cli", { trace_info: item.trace_info }, ({ recall_cli }) => {
-      const app = mount(CopyClipBoard, {
-        target: document.getElementById("clipboard"),
-        props: { content: recall_cli.trim() },
-      });
-      unmount(app);
+    live.pushEvent("copy-recall-cli", { trace_info: item.trace_info }, async ({ recall_cli }) => {
+      const ok = await writeClipboard(recall_cli.trim());
+      if (!ok) return;
       recallCopied[item.time] = true;
       clearTimeout(recallCopyTimeout[item.time]);
       recallCopyTimeout[item.time] = setTimeout(() => {
@@ -472,12 +495,9 @@
     };
   }
 
-  function copyContent(content) {
-    const app = mount(CopyClipBoard, {
-      target: document.getElementById("clipboard"),
-      props: { content: content.trim() },
-    });
-    unmount(app);
+  async function copyContent(content) {
+    const ok = await writeClipboard(content.trim());
+    if (!ok) return;
     copied = true;
     clearTimeout(copyTimeout);
     copyTimeout = setTimeout(() => { copied = false; }, 2000);
