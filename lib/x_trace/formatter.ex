@@ -156,7 +156,7 @@ defmodule XTrace.Formatter do
     end
   end
 
-  defp encode_trace_info(trace_info), do: trace_info |> :erlang.term_to_binary() |> Base.encode64()
+  defp encode_trace_info(trace_info), do: trace_info |> :erlang.term_to_binary([:compressed]) |> Base.encode64()
 
   @compile {:inline, format_body: 2}
   defp format_body(:receive, [msg]) do

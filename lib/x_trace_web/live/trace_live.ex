@@ -353,7 +353,7 @@ defmodule XTraceWeb.TraceLive do
       options: settings_to_options(options_settings, pids)
     }
 
-    encoded = :erlang.term_to_binary(settings) |> Base.encode64()
+    encoded = :erlang.term_to_binary(settings, [:compressed]) |> Base.encode64()
 
     settings =
       Map.new(settings, fn {k, v} -> {k, inspect_value(v)} end)
@@ -542,7 +542,9 @@ defmodule XTraceWeb.TraceLive do
     options = settings_to_options(options_settings, pids)
 
     encoded =
-      :erlang.term_to_binary(%{t_specs: t_specs, max: max, options: options}) |> Base.encode64()
+      %{t_specs: t_specs, max: max, options: options}
+      |> :erlang.term_to_binary([:compressed])
+      |> Base.encode64()
 
     push_event(socket, "save-curr-settings", %{encoded: encoded})
   end
@@ -587,7 +589,10 @@ defmodule XTraceWeb.TraceLive do
 
     Session.start_trace(session_id, t_specs, max, options)
 
-    encoded_settings = :erlang.term_to_binary(%{t_specs: t_specs, max: max, options: options}) |> Base.encode64()
+    encoded_settings =
+      %{t_specs: t_specs, max: max, options: options}
+      |> :erlang.term_to_binary([:compressed])
+      |> Base.encode64()
 
     assign(socket, :op_status, %{
       op_status
