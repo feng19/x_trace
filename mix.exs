@@ -89,7 +89,7 @@ defmodule XTrace.MixProject do
         applications: [x_trace: :permanent],
         include_erts: true,
         include_executables_for: [:unix, :windows],
-        steps: [:assemble, &Burrito.wrap/1],
+        steps: release_steps(),
         burrito: [
           targets: [
             macos: [os: :darwin, cpu: :x86_64],
@@ -101,5 +101,16 @@ defmodule XTrace.MixProject do
         ]
       ]
     ]
+  end
+
+  # When building inside Docker (or any environment where the cross-platform
+  # Burrito wrap is undesirable), set BURRITO_BUILD=false to skip the wrap
+  # step and produce a plain mix release.
+  defp release_steps do
+    if System.get_env("BURRITO_BUILD") == "false" do
+      [:assemble]
+    else
+      [:assemble, &Burrito.wrap/1]
+    end
   end
 end

@@ -1,0 +1,38 @@
+# Build artifacts
+_build
+deps
+burrito_out
+
+# Node / asset build artifacts
+assets/node_modules
+assets/svelte/_build
+priv/static/assets
+priv/static/cache_manifest.json
+priv/svelte
+
+# VCS / editor / IDE
+.git
+.gitignore
+.github
+.vscode
+.idea
+.elixir_ls
+.formatter.exs
+
+# Tests / docs / scratch
+test
+cover
+doc
+plans
+.expert
+
+# Misc
+README.md
+Makefile
+*.tar
+*.ez
+erl_crash.dump
+npm-debug.log
+.DS_Store
+.hosts.erlang
+.server_info
