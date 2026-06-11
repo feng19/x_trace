@@ -3,7 +3,7 @@ defmodule XTrace.NodeHelper do
   require Logger
 
   def setup_node(node_name, node_type, cookie) do
-    with {:ok, _} <- Node.start(node_name, node_type) do
+    with {:ok, _} <- Node.start(node_name, name_domain: node_type, hidden: true) do
       cond do
         is_atom(cookie) -> cookie
         is_binary(cookie) and cookie != "" -> String.to_atom(cookie)

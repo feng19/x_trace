@@ -93,7 +93,10 @@ COPY --from=builder --chown=app:app /app/_build/prod/rel/xtrace ./
 
 USER app
 
-EXPOSE 4000
+# 4000: Phoenix HTTP
+# 4369: EPMD (Erlang Port Mapper Daemon)
+# 9100: Erlang distribution port (pinned via ERL_AFLAGS in rel/env.sh.eex)
+EXPOSE 4000 4369 9100
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/app/bin/xtrace", "start"]
