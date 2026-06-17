@@ -1,6 +1,5 @@
 defmodule XTrace do
   @moduledoc false
-  require Logger
 
   def get_tracing_node do
     Application.fetch_env(:x_trace, :tracing_node)
