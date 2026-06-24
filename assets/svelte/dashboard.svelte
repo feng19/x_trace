@@ -1,6 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
+  import { useLiveConnection } from "live_svelte";
   import { dashboardStore } from "./d_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import { mode, toggleMode } from "mode-watcher";
@@ -23,6 +24,44 @@
   let { live, node_info, trace_settings, rate_limiting, options_settings, op_status, version } = $props();
 
   let defaultLayout = [25, 75];
+
+  // Re-push the saved "current settings" (Matching Patterns, rate-limiting, options)
+  // to the server. Used both on initial mount and after a reconnect.
+  function restoreCurrSettings() {
+    if (window.__TAURI__) {
+      const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
+      readTextFile("curr_settings.json", {
+        baseDir: BaseDirectory.AppData,
+      }).then((content) => {
+        if (content.length > 0) {
+          live.pushEvent("apply-settings", { encoded: content, quiet: true });
+        }
+      });
+    } else {
+      let curr_settings = localStorage.getItem("x-trace-curr-settings");
+      if (curr_settings) {
+        live.pushEvent("apply-settings", {
+          encoded: curr_settings,
+          quiet: true,
+        });
+      }
+    }
+  }
+
+  // On a LiveView reconnect the server process remounts with default (empty)
+  // assigns, wiping the Matching Patterns server-side — yet the selected preset
+  // persists in localStorage, so the Local Storage card still shows it as
+  // selected. Detect the disconnected->connected transition and restore the
+  // current settings so server state matches what the client still shows.
+  const connection = useLiveConnection();
+  let wasConnected = true;
+  $effect(() => {
+    const connected = connection.connected;
+    if (connected && !wasConnected) {
+      restoreCurrSettings();
+    }
+    wasConnected = connected;
+  });
 
   // Scroll-to-bottom floating button state
   let logsViewportRef = $state(null);
@@ -143,24 +182,7 @@
     );
 
     // load current settings
-    if (window.__TAURI__) {
-      const { readTextFile, BaseDirectory } = window.__TAURI__.fs;
-      readTextFile("curr_settings.json", {
-        baseDir: BaseDirectory.AppData,
-      }).then((content) => {
-        if (content.length > 0) {
-          live.pushEvent("apply-settings", { encoded: content, quiet: true });
-        }
-      });
-    } else {
-      let curr_settings = localStorage.getItem("x-trace-curr-settings");
-      if (curr_settings) {
-        live.pushEvent("apply-settings", {
-          encoded: curr_settings,
-          quiet: true,
-        });
-      }
-    }
+    restoreCurrSettings();
 
     // save current settings
     live.handleEvent("save-curr-settings", ({ encoded }) => {
