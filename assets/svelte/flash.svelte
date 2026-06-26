@@ -2,6 +2,7 @@
   import { Toaster } from "$lib/components/ui/sonner";
   import { toast } from "svelte-sonner";
   import { onMount } from "svelte";
+  import { connectionStore } from "./connection_store.js";
 
   let { live } = $props();
 
@@ -24,6 +25,7 @@
     });
 
     live.disconnected = () => {
+      connectionStore.set(false);
       if (live.liveSocket.isConnected()) {
         toast.error("Something went wrong!", {
           description: "Hang in there while we get back on track",
@@ -38,6 +40,7 @@
     };
 
     live.reconnected = () => {
+      connectionStore.set(true);
       toast.dismiss();
       toast.info("reconnected");
     };

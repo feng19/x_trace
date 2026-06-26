@@ -55,7 +55,7 @@ defmodule XTrace.NodeListener do
   def handle_info(:tick, %{nodes: nodes} = state) do
     if Node.alive?() do
       :net_adm.world()
-      connected = Node.list()
+      connected = Node.list(:connected)
 
       Enum.each(nodes, fn {node, cookie} ->
         with false <- node in connected,

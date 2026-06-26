@@ -1,8 +1,8 @@
 <script>
   import { onMount } from "svelte";
   import { fly } from "svelte/transition";
-  import { useLiveConnection } from "live_svelte";
   import { dashboardStore } from "./d_store.js";
+  import { connectionStore } from "./connection_store.js";
   import { settingsLocalStorage } from "./settings_local_storage.js";
   import { mode, toggleMode } from "mode-watcher";
   import { ModeWatcher } from "mode-watcher";
@@ -51,12 +51,12 @@
   // On a LiveView reconnect the server process remounts with default (empty)
   // assigns, wiping the Matching Patterns server-side — yet the selected preset
   // persists in localStorage, so the Local Storage card still shows it as
-  // selected. Detect the disconnected->connected transition and restore the
+  // selected. Detect the disconnected->connected transition (tracked in
+  // flash.svelte via the live hook's reconnected callback) and restore the
   // current settings so server state matches what the client still shows.
-  const connection = useLiveConnection();
   let wasConnected = true;
   $effect(() => {
-    const connected = connection.connected;
+    const connected = $connectionStore;
     if (connected && !wasConnected) {
       restoreCurrSettings();
     }

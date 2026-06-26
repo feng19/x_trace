@@ -46,7 +46,7 @@ defmodule XTrace.NodeHelper do
 
   def node_info do
     with {:ok, {node, _cookie}} <- XTrace.get_tracing_node(),
-         true <- node in Node.list() do
+         true <- node in Node.list(:connected) do
       node_info(node)
     else
       _ ->
@@ -58,7 +58,7 @@ defmodule XTrace.NodeHelper do
     local_node = Node.self()
     domain_list = [:net_adm.localhost() | :net_adm.host_file()] |> Enum.map(&to_string/1)
     is_self = connected_node == local_node
-    node_list = Node.list()
+    node_list = Node.list(:connected)
     code_mode = get_code_mode(is_self, connected_node)
 
     %{
