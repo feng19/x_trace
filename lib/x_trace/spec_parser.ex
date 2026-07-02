@@ -35,7 +35,10 @@ defmodule XTrace.SpecParser do
 
     case Code.string_to_quoted(raw) do
       {:ok, ast} ->
-        convert(ast)
+        case convert(ast) do
+          {:ok, []} -> {:error, "No specs found"}
+          result -> result
+        end
 
       {:error, {_meta, msg, token}} ->
         {:error, "Parse error: #{msg}#{token}"}
@@ -74,13 +77,12 @@ defmodule XTrace.SpecParser do
 
   # List of specs: [{Mod, :fun, args}, ...]
   defp convert(list) when is_list(list) do
-    results = Enum.map(list, &convert_one/1)
-    errors = for {:error, e} <- results, do: e
+    convert_many(list)
+  end
 
-    case errors do
-      [] -> {:ok, for({:ok, spec} <- results, do: spec)}
-      _ -> {:error, Enum.join(errors, "; ")}
-    end
+  # Multiple specs on separate lines are parsed as a block of expressions.
+  defp convert({:__block__, _, exprs}) do
+    convert_many(exprs)
   end
 
   # Single tuple or capture
@@ -88,6 +90,18 @@ defmodule XTrace.SpecParser do
     case convert_one(ast) do
       {:ok, spec} -> {:ok, [spec]}
       {:error, _} = err -> err
+    end
+  end
+
+  # Converts each item through convert/1 (so nested lists/lines are supported)
+  # and flattens the results, collecting all errors.
+  defp convert_many(items) do
+    results = Enum.map(items, &convert/1)
+    errors = for {:error, e} <- results, do: e
+
+    case errors do
+      [] -> {:ok, Enum.flat_map(results, fn {:ok, specs} -> specs end)}
+      _ -> {:error, Enum.join(errors, "; ")}
     end
   end
 

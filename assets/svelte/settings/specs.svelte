@@ -1,4 +1,5 @@
 <script>
+  import { tick } from "svelte";
   import { dashboardStore } from "../d_store.js";
   import { settingsLocalStorage } from "../settings_local_storage.js";
   import { Button } from "$lib/components/ui/button/index.js";
@@ -18,6 +19,7 @@
   let parseText = $state("");
   let parsing = $state(false);
   let editingIndex = $state(null);
+  let parseTextarea = $state(null);
 
   // Save state
   let savePopoverOpen = $state(false);
@@ -41,7 +43,7 @@
 
   async function handleParse() {
     const raw = parseText.trim();
-    if (!raw) return;
+    if (!raw || parsing) return;
 
     parsing = true;
     try {
@@ -55,6 +57,17 @@
       }
     } finally {
       parsing = false;
+      await tick();
+      parseTextarea?.focus();
+    }
+  }
+
+  function handleParseKeydown(e) {
+    // Cmd/Ctrl + Enter parses; plain Enter keeps its default (newline) so
+    // multi-line specs can be entered.
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleParse();
     }
   }
 
@@ -95,8 +108,10 @@
   <div class="flex flex-col gap-3 px-0 sm:px-2">
     <Textarea
       bind:value={parseText}
+      bind:ref={parseTextarea}
+      onkeydown={handleParseKeydown}
       class="min-h-[6rem] sm:min-h-[8rem] font-mono resize-y {editingIndex != null ? 'border-primary ring-2 ring-primary/30' : ''}"
-      placeholder={`# Examples:\n{Enum, :map, :return_trace}\n[{Enum, :map, :return_trace}, {Enum, :reduce, 3}]\n&Enum.map/2 | Enum.map/2 | Enum.map`}
+      placeholder={`# Examples (one spec per line, or ⌘/Ctrl+Enter to parse):\n{Enum, :map, :return_trace}\n[{Enum, :map, :return_trace}, {Enum, :reduce, 3}]\n&Enum.map/2 | Enum.map/2 | Enum.map`}
     />
 
     <div class="grid grid-cols-2 gap-2">
@@ -105,6 +120,7 @@
           class="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm"
           disabled={!parseText.trim() || parsing}
           onclick={handleParse}
+          title="⌘/Ctrl + Enter"
         >
           {#if editingIndex != null}
             <Pencil class="size-3.5 sm:size-4" /> Update Spec

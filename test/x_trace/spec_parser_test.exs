@@ -49,6 +49,49 @@ defmodule XTrace.SpecParserTest do
     end
   end
 
+  describe "multi-line specs" do
+    test "parses one tuple per line" do
+      input = "{Enum, :map, :return_trace}\n{Enum, :reduce, 3}"
+
+      assert {:ok, specs} = SpecParser.parse(input)
+      assert length(specs) == 2
+      assert {Enum, :map, :return_trace} in specs
+      assert {Enum, :reduce, 3} in specs
+    end
+
+    test "parses mixed formats across lines" do
+      input = "&Enum.map/2\nEnum.reduce\n{:ets, :lookup, 2}"
+
+      assert {:ok, specs} = SpecParser.parse(input)
+      assert length(specs) == 3
+      assert {:ets, :lookup, 2} in specs
+      assert Enum.any?(specs, &match?({Enum, :map, _}, &1))
+      assert Enum.any?(specs, &match?({Enum, :reduce, _}, &1))
+    end
+
+    test "ignores blank lines between specs" do
+      input = "{Enum, :map, :return_trace}\n\n\n{Enum, :reduce, 3}"
+
+      assert {:ok, specs} = SpecParser.parse(input)
+      assert length(specs) == 2
+    end
+
+    test "mixes list and standalone lines" do
+      input = "[{Enum, :map, :return_trace}]\n{Enum, :reduce, 3}"
+
+      assert {:ok, specs} = SpecParser.parse(input)
+      assert length(specs) == 2
+      assert {Enum, :map, :return_trace} in specs
+      assert {Enum, :reduce, 3} in specs
+    end
+
+    test "reports errors from any line" do
+      input = "{Enum, :map, :return_trace}\n{Bad}"
+
+      assert {:error, _reason} = SpecParser.parse(input)
+    end
+  end
+
   describe "capture syntax" do
     test "parses &Mod.fun/arity" do
       assert {:ok, [{Enum, :map, match_spec}]} = SpecParser.parse("&Enum.map/2")
