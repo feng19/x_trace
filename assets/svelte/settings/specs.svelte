@@ -98,7 +98,7 @@
   {#if t_specs.length > 0}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
       {#each t_specs as t_spec, index (t_spec)}
-        <ItemWithX onClick={() => selectTSpec(index)} onRemove={() => removeTSpec(index)} active={editingIndex === index}>
+        <ItemWithX onClick={() => selectTSpec(index)} onRemove={() => removeTSpec(index)} active={editingIndex === index} editable>
           {t_spec}
         </ItemWithX>
       {/each}
