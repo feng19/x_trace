@@ -94,7 +94,7 @@
   $effect(() => {
     if (isTracing) dashboardStore.setSettingMode(false);
   });
-  let showLeftPanel = $derived(!isTracing && $dashboardStore.setting_mode);
+  let showLeftPanel = $derived($dashboardStore.setting_mode);
 
   function onUpdateStore(data) {
     console.log(data);
@@ -224,7 +224,7 @@
           {#if startTraceItem.show}
             <Button
               variant="outline"
-              class="w-full space-x-2 {startTraceItem.btn_class}"
+              class="w-full space-x-2 h-10 {startTraceItem.btn_class}"
               disabled={startTraceItem.disabled}
               onclick={() => live.pushEvent("start-trace", {})}
             >
@@ -235,7 +235,7 @@
           {#if stopTraceItem.show}
             <Button
               variant="outline"
-              class="w-full space-x-2 {stopTraceItem.btn_class}"
+              class="w-full space-x-2 h-10 {stopTraceItem.btn_class}"
               disabled={stopTraceItem.disabled}
               onclick={() => live.pushEvent("stop-trace", {})}
             >
@@ -311,7 +311,7 @@
         </div>
       {/if}
       <div class:hidden={$dashboardStore.setting_mode}>
-        <LogList {live} {node_info} {isTracing} {version} />
+        <LogList {live} {node_info} {isTracing} {version} {trace_settings} />
       </div>
       <input
         type="file"

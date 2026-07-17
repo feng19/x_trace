@@ -134,7 +134,7 @@
     >
       <Input name="pid" id="options_pid_input" placeholder="A.B.C" required />
       <Button
-        class="flex items-center gap-2"
+        class="flex items-center gap-2 h-10"
         disabled={!add_pid_enable}
         type="submit"
       >

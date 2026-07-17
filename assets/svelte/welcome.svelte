@@ -8,8 +8,16 @@
   import { fade, blur } from "svelte/transition";
   import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, FileUp, Play, Settings } from "@lucide/svelte/icons";
   import NodeSwitcher from "./node_switcher.svelte";
+  import SettingsDisplay from "$lib/components/settings_display.svelte";
+  import * as HoverCard from "$lib/components/ui/hover-card";
 
-  let { live, node_info = {}, version = "" } = $props();
+  let { live, node_info = {}, version = "", trace_settings = {} } = $props();
+
+  // Show the "Current Trace Settings" card only when the user has configured
+  // trace patterns that are NOT tied to a saved preset (no selection).
+  let showCurrentSettings = $derived(
+    $settingsLocalStorage.selected == null && (trace_settings?.t_specs?.length ?? 0) > 0
+  );
 
   function applySettings(item) {
     settingsLocalStorage.select(item.id);
@@ -120,7 +128,7 @@
         <!-- Import JSON Logs -->
         <Button
           variant="outline"
-          class="w-full justify-center gap-2"
+          class="w-full justify-center gap-2 h-10"
           onclick={() => document.getElementById("upload-log-input").click()}
         >
           <FileUp class="size-4" />
@@ -130,50 +138,61 @@
         <!-- Import Settings -->
         <Button
           variant="outline"
-          class="w-full justify-center gap-2"
+          class="w-full justify-center gap-2 h-10"
           onclick={() => document.getElementById("upload-setting-input").click()}
         >
           <Settings class="size-4" />
           Import Settings
         </Button>
+
+        <!-- Current Trace Settings (unsaved, not from a preset) -->
+        {#if showCurrentSettings}
+          <HoverCard.Root openDelay={200} closeDelay={100}>
+            <HoverCard.Trigger>
+              {#snippet child({ props })}
+                <button
+                  {...props}
+                  class="w-full cursor-pointer rounded-xl border border-dashed border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-950/30 px-4 py-3 text-left transition-all shadow-sm hover:bg-blue-50 dark:hover:bg-blue-950/50 active:scale-[0.98]"
+                  onclick={() => dashboardStore.setSettingMode(true)}
+                >
+                  <div class="flex items-center gap-3">
+                    <Gauge class="size-5 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <div class="min-w-0 flex-1">
+                      <span class="truncate font-medium text-sm block">Current Trace Settings</span>
+                      <span class="text-xs text-muted-foreground">
+                        {trace_settings.t_specs.length} matching pattern{trace_settings.t_specs.length > 1 ? "s" : ""} · unsaved
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              {/snippet}
+            </HoverCard.Trigger>
+            <HoverCard.Content
+              side="left"
+              align="start"
+              class="w-[26rem] lg:w-[34rem] 2xl:w-[44rem] max-w-[90vw] max-h-[70vh] overflow-y-auto"
+            >
+              <div class="font-semibold text-sm text-blue-700 dark:text-blue-400 mb-2">Current Trace Settings</div>
+              <SettingsDisplay
+                tSpecs={trace_settings.t_specs}
+                max={trace_settings.max}
+                options={trace_settings.options}
+              />
+            </HoverCard.Content>
+          </HoverCard.Root>
+        {/if}
       </div>
 
       <!-- Saved Settings -->
       {#if $settingsLocalStorage.items.length > 0}
-        <div>
-          <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
-          {#if $settingsLocalStorage.items.length > 5}
-            <ScrollArea class="h-96">
-              <div class="flex flex-col gap-3 pr-3">
-                {#each $settingsLocalStorage.items as item (item.id)}
-                  <button
-                    class={cn(
-                      "rounded-xl border px-4 py-3 text-left transition-all shadow-sm active:scale-[0.98]",
-                      $settingsLocalStorage.selected === item.id
-                        ? "border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700"
-                        : "border-border bg-card hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700"
-                    )}
-                    onclick={() => applySettings(item)}
-                  >
-                    <div class="flex items-center gap-3">
-                      <CirclePlay class={cn("size-5 shrink-0", $settingsLocalStorage.selected === item.id ? "text-blue-700 dark:text-blue-400" : "text-blue-600")} />
-                      <div class="min-w-0 flex-1">
-                        <span class="truncate font-medium text-sm block">{item.name || item.t_specs}</span>
-                        {#if item.saved_at}
-                          <span class="text-xs text-muted-foreground">Saved: {new Date(item.saved_at).toLocaleString()}</span>
-                        {/if}
-                      </div>
-                    </div>
-                  </button>
-                {/each}
-              </div>
-            </ScrollArea>
-          {:else}
-            <div class="flex flex-col gap-3">
-              {#each $settingsLocalStorage.items as item (item.id)}
+        {#snippet savedCard(item)}
+          <HoverCard.Root openDelay={200} closeDelay={100}>
+            <HoverCard.Trigger>
+              {#snippet child({ props })}
                 <button
+                  {...props}
                   class={cn(
-                    "rounded-xl border px-4 py-3 text-left transition-all shadow-sm active:scale-[0.98]",
+                    "w-full cursor-pointer rounded-xl border px-4 py-3 text-left transition-all shadow-sm active:scale-[0.98]",
                     $settingsLocalStorage.selected === item.id
                       ? "border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/40 ring-1 ring-blue-300 dark:ring-blue-700"
                       : "border-border bg-card hover:bg-accent hover:border-blue-300 dark:hover:border-blue-700"
@@ -190,6 +209,38 @@
                     </div>
                   </div>
                 </button>
+              {/snippet}
+            </HoverCard.Trigger>
+            <HoverCard.Content
+              side="left"
+              align="start"
+              class="w-[26rem] lg:w-[34rem] 2xl:w-[44rem] max-w-[90vw] max-h-[70vh] overflow-y-auto"
+            >
+              {#if item.name}
+                <div class="font-semibold text-sm text-blue-700 dark:text-blue-400">{item.name}</div>
+              {/if}
+              {#if item.saved_at}
+                <div class="text-xs text-muted-foreground mb-2">Saved: {new Date(item.saved_at).toLocaleString()}</div>
+              {/if}
+              <SettingsDisplay tSpecs={item.t_specs} max={item.max} options={item.options} />
+            </HoverCard.Content>
+          </HoverCard.Root>
+        {/snippet}
+
+        <div>
+          <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
+          {#if $settingsLocalStorage.items.length > 5}
+            <ScrollArea class="h-96">
+              <div class="flex flex-col gap-3 pr-3">
+                {#each $settingsLocalStorage.items as item (item.id)}
+                  {@render savedCard(item)}
+                {/each}
+              </div>
+            </ScrollArea>
+          {:else}
+            <div class="flex flex-col gap-3">
+              {#each $settingsLocalStorage.items as item (item.id)}
+                {@render savedCard(item)}
               {/each}
             </div>
           {/if}
@@ -199,7 +250,7 @@
         <div class="flex flex-col gap-3">
           <Button
             variant="outline"
-            class="w-full justify-center gap-2"
+            class="w-full justify-center gap-2 h-10"
             onclick={() => dashboardStore.setSettingMode(true)}
           >
             <Settings class="size-4" />
@@ -207,7 +258,7 @@
           </Button>
           <Button
             variant="outline"
-            class="w-full justify-center gap-2 text-red-600"
+            class="w-full justify-center gap-2 h-10 text-red-600"
             onclick={() => live.pushEvent("start-trace", {})}
           >
             <Play class="size-4" />

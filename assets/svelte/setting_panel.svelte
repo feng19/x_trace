@@ -10,6 +10,7 @@
   import OptionsSettings from "./settings/options.svelte";
   import LocalSettings from "./settings/local.svelte";
   import InfoHover from "$lib/components/info_hover.svelte";
+  import { Badge } from "$lib/components/ui/badge/index.js";
 
   let { live, node_info, trace_settings, rate_limiting, options_settings, op_status } = $props();
 
@@ -92,8 +93,13 @@
   <!-- Card: Matching Patterns (full width) -->
   <div class="{card} {spanFull} card-stagger" style="--stagger:3">
     <div class={cardHeader}>
-      <h3 class="text-lg font-semibold flex items-center gap-1">
+      <h3 class="text-lg font-semibold flex items-center gap-1.5">
         Matching Patterns
+        {#if trace_settings.t_specs.length > 0}
+          <Badge variant="secondary" class="tabular-nums" title="Current specs count">
+            {trace_settings.t_specs.length}
+          </Badge>
+        {/if}
         <InfoHover class="w-96">
           <div class="space-y-2 text-sm">
             <p>A <a href="https://www.erlang.org/doc/apps/erts/match_spec.html#grammar" target="_blank" rel="noopener noreferrer" class="underline text-blue-500 hover:text-blue-700">match specification</a> used in tracing.</p>
@@ -111,7 +117,7 @@
         <Button
           variant="ghost"
           size="sm"
-          class="h-7 px-2 text-destructive hover:text-destructive"
+          class="h-10 px-2 text-destructive hover:text-destructive"
           onclick={clearAllTSpecs}
         >
           <Trash2 class="size-3.5 mr-1" /> Clear All
@@ -129,13 +135,13 @@
       <h3 class="text-lg font-semibold">Local Storage</h3>
       <div class="flex items-center gap-1">
         {#if op_status.import_settings !== "hidden"}
-          <Button onclick={importSettings} variant="ghost" size="sm" class="h-7 px-2 text-xs">
+          <Button onclick={importSettings} variant="ghost" size="sm" class="h-10 px-2 text-xs">
             <FileUp class="size-3.5 mr-1" aria-hidden="true" />
             Import
           </Button>
         {/if}
         {#if op_status.download_settings !== "hidden"}
-          <Button onclick={downloadSettings} variant="ghost" size="sm" class="h-7 px-2 text-xs">
+          <Button onclick={downloadSettings} variant="ghost" size="sm" class="h-10 px-2 text-xs">
             <FileDown class="size-3.5 mr-1" aria-hidden="true" />
             Download
           </Button>

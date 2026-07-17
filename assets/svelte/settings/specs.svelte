@@ -117,7 +117,7 @@
     <div class="grid grid-cols-2 gap-2">
       <div class="flex gap-1">
         <Button
-          class="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+          class="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10"
           disabled={!parseText.trim() || parsing}
           onclick={handleParse}
           title="⌘/Ctrl + Enter"
@@ -132,7 +132,7 @@
           <Button
             variant="outline"
             size="icon"
-            class="shrink-0"
+            class="shrink-0 size-10"
             onclick={() => { editingIndex = null; parseText = ""; }}
           >
             <X class="size-3.5 sm:size-4" />
@@ -141,7 +141,7 @@
       </div>
       <Button
         variant="outline"
-        class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm {startEnabled ? 'text-red-600 dark:text-red-400' : ''}"
+        class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10 {startEnabled ? 'text-red-600 dark:text-red-400' : ''}"
         disabled={!startEnabled}
         onclick={() => {
           dashboardStore.setSettingMode(false);
@@ -156,7 +156,7 @@
       {#if resetShow}
         <Button
           variant="outline"
-          class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+          class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10"
           disabled={!resetEnabled}
           onclick={() => { settingsLocalStorage.select(null); live.pushEvent("reset-settings", {}); }}
         >
@@ -167,7 +167,7 @@
         {#if hasSelectedStorage}
           <Button
             variant="outline"
-            class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+            class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10"
             disabled={saveDisabled}
             onclick={doQuickSave}
           >
@@ -178,7 +178,7 @@
             <Popover.Trigger>
               <Button
                 variant="outline"
-                class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+                class="w-full flex items-center justify-center gap-1.5 text-xs sm:text-sm h-10"
                 disabled={saveDisabled}
               >
                 <Save class="size-3.5 sm:size-4" /> Save Settings
@@ -194,10 +194,10 @@
                 autofocus
               />
               <div class="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onclick={() => { savePopoverOpen = false; saveName = ""; }}>
+                <Button variant="outline" size="sm" class="h-10" onclick={() => { savePopoverOpen = false; saveName = ""; }}>
                   Cancel
                 </Button>
-                <Button size="sm" disabled={!saveName.trim()} onclick={doSave}>
+                <Button size="sm" class="h-10" disabled={!saveName.trim()} onclick={doSave}>
                   Save
                 </Button>
               </div>

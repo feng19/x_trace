@@ -88,7 +88,7 @@
         <Button
           variant="outline"
           size="sm"
-          class="w-full mt-2 h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950 border-blue-200 dark:border-blue-800"
+          class="w-full mt-2 h-10 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950 border-blue-200 dark:border-blue-800"
           onclick={() => apply(item)}
         >
           <CirclePlay class="size-3.5 mr-1" />

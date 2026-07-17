@@ -46,7 +46,7 @@
       <Button
         form="connect-node"
         type="submit"
-        class="flex items-center justify-center gap-2"
+        class="flex items-center justify-center gap-2 h-10"
       >
         <Unplug class="size-4" />
         <span>Connect</span>
@@ -55,7 +55,7 @@
         phx-click="shutdown-node"
         type="button"
         variant="outline"
-        class="flex items-center justify-center gap-2"
+        class="flex items-center justify-center gap-2 h-10"
       >
         <PowerOff class="size-4" />
         <span>Shutdown</span>
@@ -93,7 +93,7 @@
           <HoverCard.Content>
             {#each node_info.domain_list as domain}
               <Button
-                class="w-full"
+                class="w-full h-10"
                 onclick={() => select_domain(domain)}
                 variant="ghost"
               >
@@ -123,6 +123,6 @@
       />
     </div>
 
-    <Button type="submit" class="w-full">Setup Node</Button>
+    <Button type="submit" class="w-full h-10">Setup Node</Button>
   </form>
 {/if}
