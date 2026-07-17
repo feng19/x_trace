@@ -65,6 +65,20 @@ Download the desktop app from [x_trace_desktop Releases](https://github.com/feng
 ./xtrace_macos_aarch64 --open
 ```
 
+### Self-update
+
+Check GitHub for the latest [release](https://github.com/feng19/x_trace/releases) and replace the running binary in place:
+
+```bash
+# Check and update (prompts for confirmation)
+./xtrace_macos_aarch64 update
+
+# Update without prompting
+./xtrace_macos_aarch64 update --yes   # or -y
+```
+
+The command picks the asset matching your OS/CPU, verifies the download over HTTPS, and swaps the binary; restart `xtrace` to run the new version. Standard proxy environment variables are honoured — `HTTPS_PROXY` / `HTTP_PROXY` (credentials supported, e.g. `http://user:pass@host:port`) and `NO_PROXY`. Self-update applies to the pre-built single-binary only, not to `mix`/dev runs.
+
 ## 📖 Usage Guide
 
 ### 1. Setting Up Erlang Distribution

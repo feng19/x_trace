@@ -7,6 +7,12 @@ defmodule XTrace.Application do
 
   @impl true
   def start(_type, _args) do
+    # Intercept the `update` command before booting the server: run the
+    # self-update flow and halt without starting Phoenix.
+    if XTrace.Updater.command?() do
+      System.halt(XTrace.Updater.run())
+    end
+
     XTrace.load_config_from_cli()
 
     children = [
