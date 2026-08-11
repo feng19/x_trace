@@ -18,7 +18,7 @@
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import {
     Sun, Moon, Settings, ArrowLeft,
-    Play, SquareX, ArrowDown,
+    Play, SquareX, ArrowDown, SeparatorHorizontal,
   } from "@lucide/svelte/icons";
 
   let { live, node_info, trace_settings, rate_limiting, options_settings, op_status, version } = $props();
@@ -346,4 +346,27 @@
     </ScrollArea>
   </Resizable.Pane>
 </Resizable.PaneGroup>
+
+<!-- Bottom-left floating button: drop a green divider line into the log stream.
+     Only while tracing (the left panel is always closed then, so it can't overlap). -->
+{#if isTracing}
+  <div class="fixed bottom-4 left-4 z-40" transition:fly={{ y: 20, duration: 200 }}>
+    <Tooltip.Root openDelay={0}>
+      <Tooltip.Trigger>
+        <Button
+          variant="outline"
+          size="icon"
+          class="size-9 rounded-full shadow-lg bg-background/90 backdrop-blur-sm hover:bg-accent text-green-600 dark:text-green-500"
+          onclick={() => window.dispatchEvent(new CustomEvent("x:add-marker"))}
+        >
+          <SeparatorHorizontal class="size-4" />
+          <span class="sr-only">Insert divider</span>
+        </Button>
+      </Tooltip.Trigger>
+      <Tooltip.Content side="right" class="flex items-center gap-4">
+        Insert divider
+      </Tooltip.Content>
+    </Tooltip.Root>
+  </div>
+{/if}
 </Tooltip.Provider>

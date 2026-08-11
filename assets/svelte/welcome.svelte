@@ -4,6 +4,7 @@
   import { cn } from "$lib/utils.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
+  import { Badge } from "$lib/components/ui/badge/index.js";
   import { Separator } from "$lib/components/ui/separator/index.js";
   import { fade, blur } from "svelte/transition";
   import { Gauge, BookOpen, Signature, ExternalLink, CirclePlay, FileUp, Play, Settings } from "@lucide/svelte/icons";
@@ -16,8 +17,16 @@
   // Show the "Current Trace Settings" card only when the user has configured
   // trace patterns that are NOT tied to a saved preset (no selection).
   let showCurrentSettings = $derived(
-    $settingsLocalStorage.selected == null && (trace_settings?.t_specs?.length ?? 0) > 0
+    (trace_settings?.t_specs?.length ?? 0) > 0
   );
+
+  // Put the selected preset first, keeping the rest in their saved order.
+  let savedItems = $derived.by(() => {
+    const { items, selected } = $settingsLocalStorage;
+    const index = selected ? items.findIndex((v) => v.id === selected) : -1;
+    if (index <= 0) return items;
+    return [items[index], ...items.slice(0, index), ...items.slice(index + 1)];
+  });
 
   function applySettings(item) {
     settingsLocalStorage.select(item.id);
@@ -202,7 +211,18 @@
                   <div class="flex items-center gap-3">
                     <CirclePlay class={cn("size-5 shrink-0", $settingsLocalStorage.selected === item.id ? "text-blue-700 dark:text-blue-400" : "text-blue-600")} />
                     <div class="min-w-0 flex-1">
-                      <span class="truncate font-medium text-sm block">{item.name || item.t_specs}</span>
+                      <div class="flex items-center gap-1.5">
+                        <span class="truncate font-medium text-sm">{item.name || item.t_specs}</span>
+                        {#if item.t_specs_count > 0}
+                          <Badge
+                            variant="secondary"
+                            class="shrink-0 px-1.5 py-0 text-[10px] tabular-nums"
+                            title="{item.t_specs_count} matching pattern{item.t_specs_count > 1 ? 's' : ''}"
+                          >
+                            {item.t_specs_count}
+                          </Badge>
+                        {/if}
+                      </div>
                       {#if item.saved_at}
                         <span class="text-xs text-muted-foreground">Saved: {new Date(item.saved_at).toLocaleString()}</span>
                       {/if}
@@ -229,17 +249,17 @@
 
         <div>
           <div class="text-sm font-semibold text-muted-foreground mb-3">Saved Settings</div>
-          {#if $settingsLocalStorage.items.length > 5}
+          {#if savedItems.length > 5}
             <ScrollArea class="h-96">
               <div class="flex flex-col gap-3 pr-3">
-                {#each $settingsLocalStorage.items as item (item.id)}
+                {#each savedItems as item (item.id)}
                   {@render savedCard(item)}
                 {/each}
               </div>
             </ScrollArea>
           {:else}
             <div class="flex flex-col gap-3">
-              {#each $settingsLocalStorage.items as item (item.id)}
+              {#each savedItems as item (item.id)}
                 {@render savedCard(item)}
               {/each}
             </div>

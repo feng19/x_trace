@@ -359,6 +359,7 @@ defmodule XTraceWeb.TraceLive do
       Map.new(settings, fn {k, v} -> {k, inspect_value(v)} end)
       |> Map.put(:encoded, encoded)
       |> Map.put(:name, name)
+      |> Map.put(:t_specs_count, length(t_specs))
 
     {:noreply, push_event(socket, "save-settings", settings)}
   end

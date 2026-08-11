@@ -1,5 +1,5 @@
 <script>
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { toast } from "svelte-sonner";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
@@ -26,13 +26,76 @@
 
   let items = $state([]);
 
+  // Pseudo log items rendered as dividers: `separator` is the wavy line marking
+  // the boundary between two trace runs, `marker` is the straight green line the
+  // user drops in manually while tracing. Neither is a real log: both are
+  // excluded from type filters, selection, expansion and the log count.
+  const SEPARATOR_TYPE = "separator";
+  const MARKER_TYPE = "marker";
+  const SEPARATOR_CONTENT = "~".repeat(64);
+  const MARKER_CONTENT = "-".repeat(64);
+
+  function isSeparator(item) {
+    return item.type === SEPARATOR_TYPE;
+  }
+
+  function isMarker(item) {
+    return item.type === MARKER_TYPE;
+  }
+
+  function isDivider(item) {
+    return isSeparator(item) || isMarker(item);
+  }
+
+  function countLogs(list) {
+    return list.filter((i) => !isDivider(i)).length;
+  }
+
+  function appendDivider(type, content) {
+    // Times are nanoseconds (System.system_time/0) and are used as the IndexedDB
+    // key, so make sure the synthetic one cannot collide with a real log.
+    let time = Date.now() * 1000000;
+    const taken = new Set(items.map((i) => i.time));
+    while (taken.has(time)) time += 1;
+
+    const divider = { time, type, pid: "", content };
+    items = [...items, divider];
+    idbAppendLog(divider, items.length);
+  }
+
+  // Insert a wavy divider whenever a trace run starts while logs from an
+  // earlier run are still on screen, so the boundary between runs is visible.
+  function insertRunSeparator() {
+    if (items.length === 0) return;
+    if (isDivider(items[items.length - 1])) return;
+    appendDivider(SEPARATOR_TYPE, SEPARATOR_CONTENT);
+  }
+
+  // Manual marker (floating button, tracing only). Skipped when the last item is
+  // already a marker, since a second one right after it would mark nothing.
+  function insertMarker() {
+    if (items.length > 0 && isMarker(items[items.length - 1])) return;
+    appendDivider(MARKER_TYPE, MARKER_CONTENT);
+  }
+
+  // Capture the initial value on purpose: only a false->true transition marks a
+  // new run (a reload while tracing must not insert a separator).
+  let wasTracing = untrack(() => isTracing);
+  $effect(() => {
+    const tracing = isTracing;
+    untrack(() => {
+      if (tracing && !wasTracing) insertRunSeparator();
+      wasTracing = tracing;
+    });
+  });
+
   // Selection mode
   let selectingMode = $derived($dashboardStore.selecting_mode);
   let selectedLogTimes = $derived($dashboardStore.selected_log_times);
   let selectedCount = $derived(selectedLogTimes.size);
 
   // Derive available types from items and push to filterStore
-  let allTypes = $derived([...new Set(items.map(i => i.type))].sort());
+  let allTypes = $derived([...new Set(items.filter(i => !isDivider(i)).map(i => i.type))].sort());
   $effect(() => {
     filterStore.setAvailableTypes(allTypes);
   });
@@ -59,15 +122,16 @@
       result = result.filter(i => !hiddenTypes.includes(i.type));
     }
     if (filterPids.length > 0) {
-      result = result.filter(i => i.pid && filterPids.includes(i.pid));
+      result = result.filter(i => isDivider(i) || (i.pid && filterPids.includes(i.pid)));
     }
     if (filterMfas.length > 0) {
-      result = result.filter(i => i.mfa && filterMfas.includes(i.mfa));
+      result = result.filter(i => isDivider(i) || (i.mfa && filterMfas.includes(i.mfa)));
     }
     return result;
   })());
 
-  let allVisibleSelected = $derived(visibleItems.length > 0 && visibleItems.every(i => selectedLogTimes.has(i.time)));
+  let selectableItems = $derived(visibleItems.filter(i => !isDivider(i)));
+  let allVisibleSelected = $derived(selectableItems.length > 0 && selectableItems.every(i => selectedLogTimes.has(i.time)));
 
   function toggleSelectItem(e, item) {
     e.stopPropagation();
@@ -75,7 +139,7 @@
   }
 
   function selectAll() {
-    dashboardStore.selectAllLogs(visibleItems.map(i => i.time));
+    dashboardStore.selectAllLogs(selectableItems.map(i => i.time));
   }
 
   function deselectAll() {
@@ -135,14 +199,16 @@
 
     e.preventDefault();
 
-    const currentIndex = visibleItems.findIndex((item) => item.time === $dashboardStore.selected);
+    // Separators are dividers, not logs: skip over them when navigating
+    const navItems = selectableItems;
+    const currentIndex = navItems.findIndex((item) => item.time === $dashboardStore.selected);
     if (currentIndex === -1) return;
 
     const nextIndex = e.key === "ArrowUp" ? currentIndex - 1 : currentIndex + 1;
-    if (nextIndex < 0 || nextIndex >= visibleItems.length) return;
+    if (nextIndex < 0 || nextIndex >= navItems.length) return;
 
-    const currentItem = visibleItems[currentIndex];
-    const nextItem = visibleItems[nextIndex];
+    const currentItem = navItems[currentIndex];
+    const nextItem = navItems[nextIndex];
 
     // Collapse current
     if (currentItem._expanded) {
@@ -194,7 +260,7 @@
     const stored = await idbLoadLogs();
     if (stored.length > 0) {
       items = stored;
-      dashboardStore.setLogCount(items.length);
+      dashboardStore.setLogCount(countLogs(items));
     }
 
     let wrapper_s = document.getElementById("logs-container-s");
@@ -247,7 +313,7 @@
       let newlyExpanded = 0;
       let expandedTotal = 0;
       items.forEach((item) => {
-        if (item.type === "io") return;
+        if (item.type === "io" || isDivider(item)) return;
         if (!item._expanded) {
           item._expanded = true;
           newlyExpanded++;
@@ -313,7 +379,7 @@
       const existingTimes = new Set(items.map((i) => i.time));
       const newItems = validItems.filter((i) => !existingTimes.has(i.time));
       items = [...items, ...newItems].sort((a, b) => a.time - b.time);
-      dashboardStore.setLogCount(items.length);
+      dashboardStore.setLogCount(countLogs(items));
       idbSaveLogs(items);
     }
 
@@ -321,7 +387,21 @@
       downloadSelectedLogsAction();
     }
 
+    function onAddMarker() {
+      insertMarker();
+      // Same follow-the-tail behaviour as an incoming log, so the line the user
+      // just dropped is actually in view.
+      if ($dashboardStore.auto_scroll) {
+        tick().then(() => {
+          if (wrapper.scrollHeight > wrapper_s.scrollHeight) {
+            document.getElementById("last-log-container").scrollIntoView({ behavior: "smooth" });
+          }
+        });
+      }
+    }
+
     window.addEventListener("x:clear-logs", onClearLogs);
+    window.addEventListener("x:add-marker", onAddMarker);
     window.addEventListener("x:expand-all-logs", onExpandAllLogs);
     window.addEventListener("x:collapse-all-logs", onCollapseAllLogs);
     window.addEventListener("x:download-logs", onDownloadLogs);
@@ -334,6 +414,7 @@
       window.removeEventListener("click", closeContextMenu);
       window.removeEventListener("keydown", handleContextMenuKeydown);
       window.removeEventListener("x:clear-logs", onClearLogs);
+      window.removeEventListener("x:add-marker", onAddMarker);
       window.removeEventListener("x:expand-all-logs", onExpandAllLogs);
       window.removeEventListener("x:collapse-all-logs", onCollapseAllLogs);
       window.removeEventListener("x:download-logs", onDownloadLogs);
@@ -554,122 +635,141 @@
   {/if}
   <div id="logs-container" class="p-1 flex flex-col gap-0 mb-6">
     {#each visibleItems as item (item.time)}
-      <div in:fade out:blur data-log-time={item.time}>
-        <button
-          class={cn(
-            "group w-full rounded-md py-1.5 px-2 text-left text-sm transition-all relative",
-            selectingMode && selectedLogTimes.has(item.time)
-              ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700"
-              : !selectingMode && $dashboardStore.selected === item.time
+      {#if isSeparator(item)}
+        <!-- run boundary: logs above belong to a previous trace run -->
+        <div in:fade class="px-2 py-2 select-none" aria-hidden="true">
+          <svg class="h-2 w-full text-muted-foreground/60">
+            <defs>
+              <pattern id="run-sep-{item.time}" width="12" height="8" patternUnits="userSpaceOnUse">
+                <path d="M0 4 Q3 0.5 6 4 T12 4" fill="none" stroke="currentColor" stroke-width="1.2" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="8" fill="url(#run-sep-{item.time})" />
+          </svg>
+        </div>
+      {:else if isMarker(item)}
+        <!-- manual marker dropped by the user while tracing -->
+        <div in:fade class="px-2 py-2 select-none" aria-hidden="true">
+          <div class="h-0.5 w-full rounded-full bg-green-600/80 dark:bg-green-500/80"></div>
+        </div>
+      {:else}
+        <div in:fade out:blur data-log-time={item.time}>
+          <button
+            class={cn(
+              "group w-full rounded-md py-1.5 px-2 text-left text-sm transition-all relative",
+              selectingMode && selectedLogTimes.has(item.time)
                 ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700"
-                : "hover:bg-accent"
-          )}
-          onclick={(e) => selectingMode ? toggleSelectItem(e, item) : toggleLog(item)}
-        >
-          <div class="flex items-start gap-2">
-            {#if selectingMode}
-              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-              <span role="presentation" class="shrink-0 mt-0.5 flex items-center" onclick={(e) => e.stopPropagation()}>
-                <Checkbox
-                  checked={selectedLogTimes.has(item.time)}
-                  onCheckedChange={() => dashboardStore.toggleLogSelection(item.time)}
-                />
-              </span>
-            {/if}
-            <Tooltip.Root openDelay={200}>
-              <Tooltip.Trigger>
-                <span
-                  class="shrink-0 mt-1.5 inline-block size-2.5 rounded-full {get_dot_class(item.type)}"
-                ></span>
-              </Tooltip.Trigger>
-              <Tooltip.Content side="top" class="text-xs px-2 py-1">
-                {item.type}
-              </Tooltip.Content>
-            </Tooltip.Root>
-            <div class={cn(
-              "text-muted-foreground text-sm",
-              selectingMode ? "line-clamp-2" : (item._expanded ? "" : "line-clamp-4")
-            )}>
-              {format_log_time(item)}{" "}<Tooltip.Root open={pidTooltipOpen[item.time] ?? false} onOpenChange={(v) => { pidTooltipOpen[item.time] = v; }} openDelay={200}>
+                : !selectingMode && $dashboardStore.selected === item.time
+                  ? "bg-blue-100 border border-blue-300 dark:bg-blue-950 dark:border-blue-700"
+                  : "hover:bg-accent"
+            )}
+            onclick={(e) => selectingMode ? toggleSelectItem(e, item) : toggleLog(item)}
+          >
+            <div class="flex items-start gap-2">
+              {#if selectingMode}
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <span role="presentation" class="shrink-0 mt-0.5 flex items-center" onclick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedLogTimes.has(item.time)}
+                    onCheckedChange={() => dashboardStore.toggleLogSelection(item.time)}
+                  />
+                </span>
+              {/if}
+              <Tooltip.Root openDelay={200}>
                 <Tooltip.Trigger>
                   <span
-                    role="button"
-                    tabindex="-1"
-                    class="cursor-pointer font-semibold hover:underline inline-flex items-center"
-                    style="color: {pid_color(item.pid)}"
-                    onclick={(e) => { if (!selectingMode) copyPid(e, item.time, item.pid); }}
-                    oncontextmenu={(e) => showContextMenu(e, item.pid)}
-                    onkeydown={(e) => { if (!selectingMode && (e.key === 'Enter' || e.key === ' ')) copyPid(e, item.time, item.pid); }}
-                  >{item.pid}</span>
+                    class="shrink-0 mt-1.5 inline-block size-2.5 rounded-full {get_dot_class(item.type)}"
+                  ></span>
                 </Tooltip.Trigger>
                 <Tooltip.Content side="top" class="text-xs px-2 py-1">
-                  {#if pidCopied[item.time]}
-                    <span class="text-green-500">Copied!</span>
-                  {:else}
-                    Click to copy PID
-                  {/if}
+                  {item.type}
                 </Tooltip.Content>
-              </Tooltip.Root>{" "}{item.content}
-            </div>
-          </div>
-          {#if !selectingMode}
-            <div class={cn(
-              "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
-              $dashboardStore.selected === item.time ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-            )}>
-              {#if item.type === "call" && item.trace_info}
-                <Tooltip.Root openDelay={200}>
+              </Tooltip.Root>
+              <div class={cn(
+                "text-muted-foreground text-sm",
+                selectingMode ? "line-clamp-2" : (item._expanded ? "" : "line-clamp-4")
+              )}>
+                {format_log_time(item)}{" "}<Tooltip.Root open={pidTooltipOpen[item.time] ?? false} onOpenChange={(v) => { pidTooltipOpen[item.time] = v; }} openDelay={200}>
                   <Tooltip.Trigger>
-                    <Button variant="ghost" size="icon" class="h-7 w-7" onclick={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
-                      {#if recallCopied[item.time]}
-                        <Check class="size-3.5 text-green-500" />
-                      {:else}
-                        <Terminal class="size-3.5" />
-                      {/if}
-                    </Button>
+                    <span
+                      role="button"
+                      tabindex="-1"
+                      class="cursor-pointer font-semibold hover:underline inline-flex items-center"
+                      style="color: {pid_color(item.pid)}"
+                      onclick={(e) => { if (!selectingMode) copyPid(e, item.time, item.pid); }}
+                      oncontextmenu={(e) => showContextMenu(e, item.pid)}
+                      onkeydown={(e) => { if (!selectingMode && (e.key === 'Enter' || e.key === ' ')) copyPid(e, item.time, item.pid); }}
+                    >{item.pid}</span>
                   </Tooltip.Trigger>
                   <Tooltip.Content side="top" class="text-xs px-2 py-1">
-                    Copy Recall CLI
+                    {#if pidCopied[item.time]}
+                      <span class="text-green-500">Copied!</span>
+                    {:else}
+                      Click to copy PID
+                    {/if}
                   </Tooltip.Content>
-                </Tooltip.Root>
-              {/if}
-              <Button variant="ghost" size="icon" class="h-7 w-7" onclick={(e) => { e.stopPropagation(); copyContent(item.content); }}>
-                {#if copied}
-                  <Check class="size-3.5 text-green-500" />
-                {:else}
-                  <Copy class="size-3.5" />
-                {/if}
-              </Button>
+                </Tooltip.Root>{" "}{item.content}
+              </div>
             </div>
-          {/if}
-        </button>
-        {#if !selectingMode && item._expanded && !(item.type === "io" && !$filterStore.showDetailsTime)}
-          <div transition:slide={{ duration: 200 }} class={cn(
-            "rounded-b-md px-3 pt-1.5 pb-2 -mt-0.5 ml-2 mr-2",
-            $dashboardStore.selected === item.time
-              ? "border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30"
-              : "bg-muted/30"
-          )}>
-            {#if $filterStore.showDetailsTime || ($filterStore.showDetailsPid && item.pid)}
-              <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 mb-1">
-                {#if $filterStore.showDetailsTime}
-                  <span class="font-semibold text-foreground">Time</span>
-                  <span class="text-muted-foreground">{new Date(item.time / 1000000).toLocaleString()}.{Math.trunc(item.time / 1000) % 1000}</span>
+            {#if !selectingMode}
+              <div class={cn(
+                "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
+                $dashboardStore.selected === item.time ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}>
+                {#if item.type === "call" && item.trace_info}
+                  <Tooltip.Root openDelay={200}>
+                    <Tooltip.Trigger>
+                      <Button variant="ghost" size="icon" class="h-7 w-7" onclick={(e) => { e.stopPropagation(); copyRecallCli(item); }}>
+                        {#if recallCopied[item.time]}
+                          <Check class="size-3.5 text-green-500" />
+                        {:else}
+                          <Terminal class="size-3.5" />
+                        {/if}
+                      </Button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content side="top" class="text-xs px-2 py-1">
+                      Copy Recall CLI
+                    </Tooltip.Content>
+                  </Tooltip.Root>
                 {/if}
-                {#if $filterStore.showDetailsPid && item.pid}
-                  <span class="font-semibold text-foreground">PID</span>
-                  <span class="text-muted-foreground">{item.pid}</span>
-                {/if}
+                <Button variant="ghost" size="icon" class="h-7 w-7" onclick={(e) => { e.stopPropagation(); copyContent(item.content); }}>
+                  {#if copied}
+                    <Check class="size-3.5 text-green-500" />
+                  {:else}
+                    <Copy class="size-3.5" />
+                  {/if}
+                </Button>
               </div>
             {/if}
-            {#if item._details_loading}
-              <div class="text-sm text-muted-foreground">Loading details...</div>
-            {:else if item._details}
-              <div use:initViewer={item._details}></div>
-            {/if}
-          </div>
-        {/if}
-      </div>
+          </button>
+          {#if !selectingMode && item._expanded && !(item.type === "io" && !$filterStore.showDetailsTime)}
+            <div transition:slide={{ duration: 200 }} class={cn(
+              "rounded-b-md px-3 pt-1.5 pb-2 -mt-0.5 ml-2 mr-2",
+              $dashboardStore.selected === item.time
+                ? "border border-t-0 border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/30"
+                : "bg-muted/30"
+            )}>
+              {#if $filterStore.showDetailsTime || ($filterStore.showDetailsPid && item.pid)}
+                <div class="text-xs grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 mb-1">
+                  {#if $filterStore.showDetailsTime}
+                    <span class="font-semibold text-foreground">Time</span>
+                    <span class="text-muted-foreground">{new Date(item.time / 1000000).toLocaleString()}.{Math.trunc(item.time / 1000) % 1000}</span>
+                  {/if}
+                  {#if $filterStore.showDetailsPid && item.pid}
+                    <span class="font-semibold text-foreground">PID</span>
+                    <span class="text-muted-foreground">{item.pid}</span>
+                  {/if}
+                </div>
+              {/if}
+              {#if item._details_loading}
+                <div class="text-sm text-muted-foreground">Loading details...</div>
+              {:else if item._details}
+                <div use:initViewer={item._details}></div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
     {/each}
     <div id="last-log-container"></div>
 
