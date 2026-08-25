@@ -1,6 +1,6 @@
 <script>
   import { filterStore } from "./filter_store.js";
-  import { TYPE_DOT_COLORS, getDotClass } from "./log_type_colors.js";
+  import { getDotClass } from "./log_type_colors.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { Checkbox } from "$lib/components/ui/checkbox/index.js";
   import * as Popover from "$lib/components/ui/popover/index.js";

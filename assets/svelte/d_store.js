@@ -2,7 +2,6 @@ import { writable } from "svelte/store";
 
 function createStore() {
   const store = writable({
-    disabled: true,
     selected: null,
     log: null,
     log_count: 0,

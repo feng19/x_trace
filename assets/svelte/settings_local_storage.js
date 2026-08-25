@@ -1,5 +1,6 @@
 import { writable, get } from "svelte/store";
 import { toast } from "svelte-sonner";
+import { downloadFile, timestampSuffix } from "./file_utils.js";
 
 const SELECTED_ID_STORAGE_KEY = "x-trace-selected-setting-id";
 
@@ -68,7 +69,6 @@ function createStore() {
   return {
     subscribe: store.subscribe,
     select: (id) => {
-      console.log("select id:", id);
       store.update((obj) => ({ ...obj, selected: id }));
       saveSelectedId(id);
     },
@@ -114,28 +114,16 @@ function createStore() {
       return true;
     },
     download: () => {
-      console.log("create setting file...");
-      const link = document.createElement("a");
-      const content = JSON.stringify(get(store).items);
-      const file = new Blob([content], { type: "application/json" });
-      link.href = URL.createObjectURL(file);
-      const now = new Date();
-      const ts = now.getFullYear().toString() +
-        String(now.getMonth() + 1).padStart(2, "0") +
-        String(now.getDate()).padStart(2, "0") + "_" +
-        String(now.getHours()).padStart(2, "0") +
-        String(now.getMinutes()).padStart(2, "0") +
-        String(now.getSeconds()).padStart(2, "0");
-      link.download = `xtrace_settings_${ts}.json`;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      downloadFile(
+        `xtrace_settings_${timestampSuffix()}.json`,
+        JSON.stringify(get(store).items)
+      );
     },
     tauri_download: () => {
       const { save } = window.__TAURI__.dialog;
       save({
         filters: [{ name: "Json", extensions: ["json"] }],
       }).then((path) => {
-        console.log(path);
         const { writeTextFile } = window.__TAURI__.fs;
         writeTextFile(path, JSON.stringify(get(store).items)).then(
           () => {

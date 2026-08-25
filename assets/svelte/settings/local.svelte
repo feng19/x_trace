@@ -1,7 +1,5 @@
 <script>
-  import { dashboardStore } from "../d_store.js";
   import { settingsLocalStorage } from "../settings_local_storage.js";
-  import { onMount } from "svelte";
   import { cn } from "$lib/utils.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";

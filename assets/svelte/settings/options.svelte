@@ -6,7 +6,6 @@
   import ItemWithX from "$lib/components/item_with_x.svelte";
   import InfoHover from "$lib/components/info_hover.svelte";
   import { Plus } from "@lucide/svelte/icons";
-  import { flip } from "svelte/animate";
   import { fade } from "svelte/transition";
 
   let {

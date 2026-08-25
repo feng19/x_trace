@@ -21,7 +21,7 @@
     Play, SquareX, ArrowDown, SeparatorHorizontal,
   } from "@lucide/svelte/icons";
 
-  let { live, node_info, trace_settings, rate_limiting, options_settings, op_status, version } = $props();
+  let { live, node_info = {}, trace_settings = {}, rate_limiting = {}, options_settings = {}, op_status = {}, version = "" } = $props();
 
   let defaultLayout = [25, 75];
 
@@ -97,8 +97,37 @@
   let showLeftPanel = $derived($dashboardStore.setting_mode);
 
   function onUpdateStore(data) {
-    console.log(data);
     dashboardStore.update((obj) => ({ ...obj, ...data }));
+  }
+
+  // File-import handlers attached declaratively via onchange on the hidden inputs,
+  // so Svelte owns the listeners (avoids duplicate handlers on re-mount).
+  function handleSettingsFileInput(event) {
+    const input = event.target;
+    if (input.files.length) {
+      settingsLocalStorage.import_file(input.files[0]);
+    }
+    input.value = "";
+  }
+
+  function handleLogFileInput(event) {
+    const input = event.target;
+    if (input.files.length) {
+      const reader = new FileReader();
+      reader.onload = function () {
+        try {
+          const importedItems = JSON.parse(this.result);
+          dashboardStore.setSettingMode(false); // switch to log view so user sees imported logs
+          window.dispatchEvent(
+            new CustomEvent("x:import-logs", { detail: { items: importedItems } })
+          );
+        } catch (e) {
+          console.error("Failed to parse imported log file:", e);
+        }
+      };
+      reader.readAsText(input.files[0]);
+    }
+    input.value = "";
   }
 
   // Listen for scroll events on the logs viewport to show/hide scroll-to-bottom button
@@ -142,44 +171,7 @@
       }
     });
 
-    // after user select settings file
-    document.getElementById("upload-setting-input").addEventListener(
-      "change",
-      (event) => {
-        let input = event.target;
-        if (input.files.length) {
-          console.log("import settings files:", input.files);
-          settingsLocalStorage.import_file(input.files[0]);
-        }
-        input.value = "";
-      },
-      true
-    );
 
-    // after user select log file for import
-    document.getElementById("upload-log-input").addEventListener(
-      "change",
-      (event) => {
-        let input = event.target;
-        if (input.files.length) {
-          let reader = new FileReader();
-          reader.onload = function () {
-            try {
-              let importedItems = JSON.parse(this.result);
-              dashboardStore.setSettingMode(false); // switch to log view so user sees imported logs
-              window.dispatchEvent(
-                new CustomEvent("x:import-logs", { detail: { items: importedItems } })
-              );
-            } catch (e) {
-              console.error("Failed to parse imported log file:", e);
-            }
-          };
-          reader.readAsText(input.files[0]);
-        }
-        input.value = "";
-      },
-      true
-    );
 
     // load current settings
     restoreCurrSettings();
@@ -319,6 +311,7 @@
         class="hidden"
         name="upload-setting"
         accept=".json"
+        onchange={handleSettingsFileInput}
       />
       <input
         type="file"
@@ -326,8 +319,8 @@
         class="hidden"
         name="upload-log"
         accept=".json"
+        onchange={handleLogFileInput}
       />
-      <div id="clipboard"></div>
       {#if showScrollToBottom && !$dashboardStore.setting_mode}
         <div class="sticky bottom-4 z-40 flex justify-end pr-4 pointer-events-none">
           <div transition:fly={{ y: 20, duration: 200 }}>

@@ -3,7 +3,8 @@
   import { toast } from "svelte-sonner";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
-  import { TYPE_DOT_COLORS, getDotClass } from "./log_type_colors.js";
+  import { getDotClass } from "./log_type_colors.js";
+  import { downloadFile, timestampSuffix } from "./file_utils.js";
   import {
     loadLogs as idbLoadLogs,
     saveLogs as idbSaveLogs,
@@ -12,11 +13,10 @@
     clearLogs as idbClearLogs,
   } from "./log_idb_store.js";
   import { cn } from "$lib/utils.js";
-  import { Badge } from "$lib/components/ui/badge/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
   import { fade, blur, slide } from "svelte/transition";
-  import { Copy, Check, Play, Terminal, Download, Trash2, X, CheckSquare, Square, ListFilter } from "@lucide/svelte/icons";
+  import { Copy, Check, Play, Terminal, Download, Trash2, X, ListFilter } from "@lucide/svelte/icons";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import ElixirDataViewer from "../vendor/elixir-data-viewer";
   import StringInspectDialog from "$lib/components/string_inspect_dialog.svelte";
@@ -94,22 +94,68 @@
   let selectedLogTimes = $derived($dashboardStore.selected_log_times);
   let selectedCount = $derived(selectedLogTimes.size);
 
-  // Derive available types from items and push to filterStore
-  let allTypes = $derived([...new Set(items.filter(i => !isDivider(i)).map(i => i.type))].sort());
-  $effect(() => {
-    filterStore.setAvailableTypes(allTypes);
-  });
+  // Available types / PIDs / MFAs are maintained incrementally so that appending
+  // a log updates them without re-scanning and re-sorting the whole list each time.
+  // Each append folds the log's option fields into a Set (O(1)); the refresh is
+  // coalesced into a single microtask so a burst of appends sorts once, not per item.
+  let availableTypes = $state([]);
+  let availablePids = $state([]);
+  let availableMfas = $state([]);
+  const typeSet = new Set();
+  const pidSet = new Set();
+  const mfaSet = new Set();
+  let optionsRefreshScheduled = false;
 
-  // Derive available PIDs from items and push to filterStore
-  let allPids = $derived([...new Set(items.map(i => i.pid).filter(Boolean))].sort());
-  $effect(() => {
-    filterStore.setAvailablePids(allPids);
-  });
+  function addToOptionSet(set, value) {
+    if (value && !set.has(value)) {
+      set.add(value);
+      return true;
+    }
+    return false;
+  }
 
-  // Derive available MFAs from items and push to filterStore
-  let allMfas = $derived([...new Set(items.map(i => i.mfa).filter(Boolean))].sort());
+  function scheduleOptionsRefresh() {
+    if (optionsRefreshScheduled) return;
+    optionsRefreshScheduled = true;
+    queueMicrotask(() => {
+      optionsRefreshScheduled = false;
+      availableTypes = [...typeSet].sort();
+      availablePids = [...pidSet].sort();
+      availableMfas = [...mfaSet].sort();
+    });
+  }
+
+  function addOptionsForItem(item, schedule = true) {
+    let changed = false;
+    if (!isDivider(item)) changed = addToOptionSet(typeSet, item.type) || changed;
+    changed = addToOptionSet(pidSet, item.pid) || changed;
+    changed = addToOptionSet(mfaSet, item.mfa) || changed;
+    if (changed && schedule) scheduleOptionsRefresh();
+  }
+
+  function resetOptions() {
+    typeSet.clear();
+    pidSet.clear();
+    mfaSet.clear();
+    scheduleOptionsRefresh();
+  }
+
+  function loadOptionsFromItems(list) {
+    typeSet.clear();
+    pidSet.clear();
+    mfaSet.clear();
+    for (const item of list) addOptionsForItem(item, false);
+    scheduleOptionsRefresh();
+  }
+
   $effect(() => {
-    filterStore.setAvailableMfas(allMfas);
+    filterStore.setAvailableTypes(availableTypes);
+  });
+  $effect(() => {
+    filterStore.setAvailablePids(availablePids);
+  });
+  $effect(() => {
+    filterStore.setAvailableMfas(availableMfas);
   });
 
   // Filter items by hidden types, filter PIDs, and filter MFAs
@@ -155,38 +201,52 @@
     if (selectedItems.length === 0) return;
 
     const exportItems = selectedItems.map(({ _details, _details_loading, _expanded, ...rest }) => rest);
-    const content = JSON.stringify(exportItems, null, 2);
-    const file = new Blob([content], { type: "application/json" });
-    const link = document.createElement("a");
-    const now = new Date();
-    const ts = now.getFullYear().toString() +
-      String(now.getMonth() + 1).padStart(2, "0") +
-      String(now.getDate()).padStart(2, "0") + "_" +
-      String(now.getHours()).padStart(2, "0") +
-      String(now.getMinutes()).padStart(2, "0") +
-      String(now.getSeconds()).padStart(2, "0");
-    link.href = URL.createObjectURL(file);
-    link.download = `xtrace_selected_${ts}.json`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    downloadFile(
+      `xtrace_selected_${timestampSuffix()}.json`,
+      JSON.stringify(exportItems, null, 2)
+    );
     dashboardStore.setSelectingMode(false);
   }
 
-  function get_dot_class(type) {
-    return getDotClass(type);
+  // Details are loaded in batches of up to DETAIL_BATCH_SIZE items: every item
+  // queued during one task is flushed in the next microtask as one request per
+  // chunk. This turns the N per-item round-trips of expand-all into a handful
+  // of requests while keeping each payload bounded.
+  const DETAIL_BATCH_SIZE = 50;
+  let detailBatch = [];
+  let detailBatchScheduled = false;
+
+  function queueLoadDetails(item) {
+    if (!item.trace_info || item._details || item._details_loading) return;
+    item._details_loading = true;
+    detailBatch.push(item);
+    if (detailBatchScheduled) return;
+    detailBatchScheduled = true;
+    queueMicrotask(() => {
+      detailBatchScheduled = false;
+      const batch = detailBatch;
+      detailBatch = [];
+      if (batch.length === 0) return;
+      for (let i = 0; i < batch.length; i += DETAIL_BATCH_SIZE) {
+        const chunk = batch.slice(i, i + DETAIL_BATCH_SIZE);
+        live.pushEvent(
+          "format-details",
+          { items: chunk.map((it) => ({ type: it.type, trace_info: it.trace_info })) },
+          ({ results }) => {
+            for (let j = 0; j < chunk.length; j++) {
+              const item = chunk[j];
+              item._details = results?.[j]?.details;
+              item._details_loading = false;
+              idbUpdateLog(item);
+            }
+          }
+        );
+      }
+    });
   }
 
   function loadDetailsForItem(item) {
-    if (item.trace_info && !item._details && !item._details_loading) {
-      item._details_loading = true;
-      items = items;
-      live.pushEvent("format-details", { type: item.type, trace_info: item.trace_info }, ({ details }) => {
-        item._details = details;
-        item._details_loading = false;
-        items = items;
-        idbUpdateLog(item);
-      });
-    }
+    queueLoadDetails(item);
   }
 
   function handleKeyNavigation(e) {
@@ -221,7 +281,6 @@
     dashboardStore.updateExpandedCount(1);
     dashboardStore.setLog(nextItem);
     loadDetailsForItem(nextItem);
-    items = items;
 
     // Scroll into view
     tick().then(() => {
@@ -260,6 +319,7 @@
     const stored = await idbLoadLogs();
     if (stored.length > 0) {
       items = stored;
+      loadOptionsFromItems(stored);
       dashboardStore.setLogCount(countLogs(items));
     }
 
@@ -272,24 +332,19 @@
     window.addEventListener("keydown", handleContextMenuKeydown);
 
     live.handleEvent("add-log", (log) => {
-      console.log(log);
-      // If expand_all is active, auto-expand and load details for the new log (skip io type)
-      if ($dashboardStore.expand_all && log.type !== "io") {
-        log._expanded = true;
-        dashboardStore.updateExpandedCount(1);
-        if (log.trace_info) {
-          log._details_loading = true;
-          live.pushEvent("format-details", { type: log.type, trace_info: log.trace_info }, ({ details }) => {
-            log._details = details;
-            log._details_loading = false;
-            items = items;
-            idbUpdateLog(log);
-          });
-        }
-      }
       items = [...items, log];
       dashboardStore.updateLogCount(1);
       idbAppendLog(log, items.length);
+      addOptionsForItem(log);
+
+      // If expand_all is active, auto-expand and load details for the new log (skip io type).
+      // Operate on the proxied item (items[items.length - 1]) so mutations are reactive.
+      if ($dashboardStore.expand_all && log.type !== "io") {
+        const newItem = items[items.length - 1];
+        newItem._expanded = true;
+        dashboardStore.updateExpandedCount(1);
+        loadDetailsForItem(newItem);
+      }
 
       if ($dashboardStore.auto_scroll) {
         tick().then(() => {
@@ -303,6 +358,7 @@
 
     function onClearLogs() {
       items = [];
+      resetOptions();
       dashboardStore.setLogCount(0);
       dashboardStore.setExpandAll(false);
       idbClearLogs();
@@ -310,53 +366,34 @@
 
     function onExpandAllLogs() {
       dashboardStore.setExpandAll(true);
-      let newlyExpanded = 0;
       let expandedTotal = 0;
       items.forEach((item) => {
         if (item.type === "io" || isDivider(item)) return;
         if (!item._expanded) {
           item._expanded = true;
-          newlyExpanded++;
         }
         expandedTotal++;
         loadDetailsForItem(item);
       });
       dashboardStore.setExpandedCount(expandedTotal);
-      items = items;
     }
 
     function onCollapseAllLogs() {
       items.forEach((item) => { item._expanded = false; });
-      items = items;
       dashboardStore.setExpandAll(false);
     }
 
     function onDownloadLogs(e) {
       const format = e.detail?.format || "text";
-      const link = document.createElement("a");
-      const now = new Date();
-      const ts = now.getFullYear().toString() +
-        String(now.getMonth() + 1).padStart(2, "0") +
-        String(now.getDate()).padStart(2, "0") + "_" +
-        String(now.getHours()).padStart(2, "0") +
-        String(now.getMinutes()).padStart(2, "0") +
-        String(now.getSeconds()).padStart(2, "0");
+      const ts = timestampSuffix();
 
       if (format === "json") {
         const exportItems = items.map(({ _details, _details_loading, _expanded, ...rest }) => rest);
-        const content = JSON.stringify(exportItems, null, 2);
-        const file = new Blob([content], { type: "application/json" });
-        link.href = URL.createObjectURL(file);
-        link.download = `xtrace_${ts}.json`;
+        downloadFile(`xtrace_${ts}.json`, JSON.stringify(exportItems, null, 2));
       } else {
         const content = items.map((log) => log.content).join("\n");
-        const file = new Blob([content], { type: "text/plain" });
-        link.href = URL.createObjectURL(file);
-        link.download = `xtrace_${ts}.log`;
+        downloadFile(`xtrace_${ts}.log`, content, "text/plain");
       }
-
-      link.click();
-      URL.revokeObjectURL(link.href);
     }
 
     function onImportLogs(e) {
@@ -379,6 +416,7 @@
       const existingTimes = new Set(items.map((i) => i.time));
       const newItems = validItems.filter((i) => !existingTimes.has(i.time));
       items = [...items, ...newItems].sort((a, b) => a.time - b.time);
+      loadOptionsFromItems(items);
       dashboardStore.setLogCount(countLogs(items));
       idbSaveLogs(items);
     }
@@ -599,7 +637,7 @@
       dashboardStore.setLog(item);
       loadDetailsForItem(item);
     }
-    items = items;
+
   }
 
 </script>
@@ -678,7 +716,7 @@
               <Tooltip.Root openDelay={200}>
                 <Tooltip.Trigger>
                   <span
-                    class="shrink-0 mt-1.5 inline-block size-2.5 rounded-full {get_dot_class(item.type)}"
+                    class="shrink-0 mt-1.5 inline-block size-2.5 rounded-full {getDotClass(item.type)}"
                   ></span>
                 </Tooltip.Trigger>
                 <Tooltip.Content side="top" class="text-xs px-2 py-1">

@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy } from "svelte";
   import { dashboardStore } from "./d_store.js";
   import { filterStore } from "./filter_store.js";
   import FilterPanel from "./filter_panel.svelte";
@@ -42,14 +43,11 @@
   let clearConfirmOpen = $state(false);
 
   let selectingMode = $derived($dashboardStore.selecting_mode);
+  let settingMode = $derived($dashboardStore.setting_mode);
 
   function startSelectingMode() {
     downloadOpen = false;
     dashboardStore.setSelectingMode(true);
-  }
-
-  function cancelSelectingMode() {
-    dashboardStore.setSelectingMode(false);
   }
 
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
@@ -107,6 +105,12 @@
   function onSearchBlur() {
     searchFocused = false;
   }
+
+  // Clear the pending debounce timer on unmount so a destroyed component
+  // cannot later call filterStore.searchAll.
+  onDestroy(() => {
+    clearTimeout(searchDebounceTimer);
+  });
 
   function onSearchKeyDown(e) {
     if (e.key === "Enter") {
@@ -203,6 +207,7 @@
     onkeydown={onSearchKeyDown}
     onfocus={onSearchFocus}
     onblur={onSearchBlur}
+    disabled={settingMode}
     class="pr-20 transition-all duration-200 {searchFocused ? 'ring-2 ring-blue-500 border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.15)]' : ''} {hasSearchQuery ? 'border-blue-400 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-700' : ''}"
   />
   <div class="absolute right-1 flex items-center gap-0.5">
@@ -215,10 +220,12 @@
       <Tooltip.Trigger>
         <button
           class="inline-flex items-center justify-center rounded-sm size-6 transition-colors
+            disabled:pointer-events-none disabled:opacity-40
             {searchCaseSensitive
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
           onclick={toggleCaseSensitive}
+          disabled={settingMode}
         >
           <CaseSensitive class="size-3.5" />
         </button>
@@ -231,8 +238,9 @@
       <Tooltip.Root openDelay={0}>
         <Tooltip.Trigger>
           <button
-            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:pointer-events-none disabled:opacity-40"
             onclick={() => filterStore.searchPrev()}
+            disabled={settingMode}
           >
             <ChevronUp class="size-3.5" />
           </button>
@@ -244,8 +252,9 @@
       <Tooltip.Root openDelay={0}>
         <Tooltip.Trigger>
           <button
-            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:pointer-events-none disabled:opacity-40"
             onclick={() => filterStore.searchNext()}
+            disabled={settingMode}
           >
             <ChevronDown class="size-3.5" />
           </button>
@@ -257,8 +266,9 @@
       <Tooltip.Root openDelay={0}>
         <Tooltip.Trigger>
           <button
-            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            class="inline-flex items-center justify-center rounded-sm size-6 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:pointer-events-none disabled:opacity-40"
             onclick={clearSearch}
+            disabled={settingMode}
           >
             <X class="size-3.5" />
           </button>

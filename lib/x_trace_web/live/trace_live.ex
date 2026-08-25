@@ -29,6 +29,16 @@ defmodule XTraceWeb.TraceLive do
     {:reply, data, socket}
   end
 
+  def handle_event("format-details", %{"items" => items}, socket) when is_list(items) do
+    results =
+      Enum.map(items, fn %{"type" => type, "trace_info" => trace_info} ->
+        type = String.to_existing_atom(type)
+        %{details: XTrace.Formatter.format_details(type, trace_info)}
+      end)
+
+    {:reply, %{results: results}, socket}
+  end
+
   def handle_event("format-details", %{"type" => type, "trace_info" => trace_info}, socket) do
     type = String.to_existing_atom(type)
     details = XTrace.Formatter.format_details(type, trace_info)

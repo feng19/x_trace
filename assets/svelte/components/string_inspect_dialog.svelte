@@ -2,7 +2,6 @@
   import * as Dialog from "$lib/components/ui/dialog/index.js";
   import * as Tabs from "$lib/components/ui/tabs/index.js";
   import { Button } from "$lib/components/ui/button/index.js";
-  import { Input } from "$lib/components/ui/input/index.js";
   import { Copy, Check, Search, ChevronUp, ChevronDown, CaseSensitive } from "@lucide/svelte/icons";
   import { elixirStringToPuts } from "../elixir_string_utils.js";
   import { onMount, tick } from "svelte";

@@ -1,6 +1,5 @@
 <script>
   import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
   import SettingsDisplay from "$lib/components/settings_display.svelte";
 
   let {
